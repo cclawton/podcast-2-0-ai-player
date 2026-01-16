@@ -174,9 +174,11 @@ fun SemanticsNodeInteractionCollection.assertCountAtLeast(count: Int): Semantics
  */
 fun hasTextContaining(substring: String, ignoreCase: Boolean = false): SemanticsMatcher {
     return SemanticsMatcher("text contains '$substring'") { node ->
-        node.config.getOrNull(SemanticsProperties.Text)?.any {
-            it.text.contains(substring, ignoreCase)
-        } ?: false
+        if (node.config.contains(SemanticsProperties.Text)) {
+            node.config[SemanticsProperties.Text].any { it.text.contains(substring, ignoreCase) }
+        } else {
+            false
+        }
     }
 }
 
@@ -185,7 +187,8 @@ fun hasTextContaining(substring: String, ignoreCase: Boolean = false): Semantics
  */
 fun hasProgressValue(value: Float): SemanticsMatcher {
     return SemanticsMatcher("progress value is $value") { node ->
-        node.config.getOrNull(SemanticsProperties.ProgressBarRangeInfo)?.current == value
+        node.config.contains(SemanticsProperties.ProgressBarRangeInfo) &&
+            node.config[SemanticsProperties.ProgressBarRangeInfo].current == value
     }
 }
 
@@ -194,7 +197,8 @@ fun hasProgressValue(value: Float): SemanticsMatcher {
  */
 fun isToggleableAndChecked(): SemanticsMatcher {
     return SemanticsMatcher("toggleable and checked") { node ->
-        node.config.getOrNull(SemanticsProperties.ToggleableState)?.toString() == "On"
+        node.config.contains(SemanticsProperties.ToggleableState) &&
+            node.config[SemanticsProperties.ToggleableState].toString() == "On"
     }
 }
 
@@ -203,7 +207,8 @@ fun isToggleableAndChecked(): SemanticsMatcher {
  */
 fun isToggleableAndUnchecked(): SemanticsMatcher {
     return SemanticsMatcher("toggleable and unchecked") { node ->
-        node.config.getOrNull(SemanticsProperties.ToggleableState)?.toString() == "Off"
+        node.config.contains(SemanticsProperties.ToggleableState) &&
+            node.config[SemanticsProperties.ToggleableState].toString() == "Off"
     }
 }
 
@@ -212,7 +217,7 @@ fun isToggleableAndUnchecked(): SemanticsMatcher {
  */
 fun isDisabled(): SemanticsMatcher {
     return SemanticsMatcher("is disabled") { node ->
-        node.config.getOrNull(SemanticsProperties.Disabled) != null
+        node.config.contains(SemanticsProperties.Disabled)
     }
 }
 
