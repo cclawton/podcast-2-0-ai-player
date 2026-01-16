@@ -61,9 +61,9 @@ jobs:
         working-directory: android
         run: ./gradlew testReleaseUnitTest --stacktrace
 
-      - name: Build release APK (unsigned)
+      - name: Build debug APK (signed with debug key)
         working-directory: android
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Generate changelog
         id: changelog
@@ -85,8 +85,8 @@ jobs:
 
       - name: Rename APK with version
         run: |
-          mv android/app/build/outputs/apk/release/app-release-unsigned.apk \
-             android/app/build/outputs/apk/release/podcast-app-${{ steps.version.outputs.version }}-unsigned.apk
+          mv android/app/build/outputs/apk/debug/app-debug.apk \
+             android/app/build/outputs/apk/debug/podcast-app-${{ steps.version.outputs.version }}-debug.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -96,22 +96,14 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
           files: |
-            android/app/build/outputs/apk/release/podcast-app-${{ steps.version.outputs.version }}-unsigned.apk
+            android/app/build/outputs/apk/debug/podcast-app-${{ steps.version.outputs.version }}-debug.apk
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload release APK artifact
+      - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk-${{ steps.version.outputs.version }}
-          path: android/app/build/outputs/apk/release/podcast-app-${{ steps.version.outputs.version }}-unsigned.apk
+          name: debug-apk-${{ steps.version.outputs.version }}
+          path: android/app/build/outputs/apk/debug/podcast-app-${{ steps.version.outputs.version }}-debug.apk
           retention-days: 90
-
-      - name: Upload ProGuard mapping
-        uses: actions/upload-artifact@v4
-        with:
-          name: proguard-mapping-${{ steps.version.outputs.version }}
-          path: android/app/build/outputs/mapping/release/
-          retention-days: 90
-          if-no-files-found: ignore
