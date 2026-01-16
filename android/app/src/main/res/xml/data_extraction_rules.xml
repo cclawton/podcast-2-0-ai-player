@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Do not backup sensitive data -->
+        <exclude domain="sharedpref" path="podcast_secure_prefs.xml" />
+        <exclude domain="database" path="podcast_database" />
+    </cloud-backup>
+    <device-transfer>
+        <!-- Allow database transfer between devices -->
+        <include domain="database" path="podcast_database" />
+        <!-- Exclude encrypted preferences -->
+        <exclude domain="sharedpref" path="podcast_secure_prefs.xml" />
+    </device-transfer>
+</data-extraction-rules>

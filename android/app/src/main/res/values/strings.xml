@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Podcast 2.0</string>
+    <string name="mcp_permission_description">Allows control of podcast playback via MCP commands. Only apps signed with the same key can use this.</string>
+
+    <!-- Playback -->
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="skip_forward">Skip forward</string>
+    <string name="skip_backward">Skip backward</string>
+    <string name="playback_speed">Playback speed</string>
+
+    <!-- Library -->
+    <string name="library">Library</string>
+    <string name="search">Search</string>
+    <string name="settings">Settings</string>
+    <string name="subscribe">Subscribe</string>
+    <string name="unsubscribe">Unsubscribe</string>
+
+    <!-- Player -->
+    <string name="now_playing">Now Playing</string>
+    <string name="chapters">Chapters</string>
+    <string name="transcript">Transcript</string>
+
+    <!-- Settings -->
+    <string name="api_settings">API Settings</string>
+    <string name="podcast_index_key">Podcast Index API Key</string>
+    <string name="podcast_index_secret">Podcast Index API Secret</string>
+    <string name="llm_settings">LLM Settings</string>
+    <string name="enable_ollama">Enable Ollama (Local)</string>
+    <string name="enable_claude">Enable Claude API</string>
+
+    <!-- Errors -->
+    <string name="error_network">Network error. Please check your connection.</string>
+    <string name="error_not_found">Podcast not found.</string>
+    <string name="error_playback">Playback error occurred.</string>
+</resources>
