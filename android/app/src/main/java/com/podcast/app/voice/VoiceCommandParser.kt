@@ -288,14 +288,14 @@ class VoiceCommandParser @Inject constructor() {
 
         // Chapter navigation
         nextChapterPattern.find(normalized)?.let {
-            return JumpToChapterIntent(chapterNumber = null, chapterName = "next", HIGH_CONFIDENCE, raw)
+            return JumpToChapterIntent(chapterNumber = null, chapterName = "next", confidence = HIGH_CONFIDENCE, rawText = raw)
         }
         previousChapterPattern.find(normalized)?.let {
-            return JumpToChapterIntent(chapterNumber = null, chapterName = "previous", HIGH_CONFIDENCE, raw)
+            return JumpToChapterIntent(chapterNumber = null, chapterName = "previous", confidence = HIGH_CONFIDENCE, rawText = raw)
         }
         jumpToChapterPattern.find(normalized)?.let { match ->
             val chapterNum = parseNumber(match.groupValues[1])
-            return JumpToChapterIntent(chapterNumber = chapterNum, HIGH_CONFIDENCE, rawText = raw)
+            return JumpToChapterIntent(chapterNumber = chapterNum, chapterName = null, confidence = HIGH_CONFIDENCE, rawText = raw)
         }
 
         return null

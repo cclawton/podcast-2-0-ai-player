@@ -191,7 +191,7 @@ class MCPSocketService : Service() {
      * Get the session key for external authentication.
      * This should be securely shared with the MCP server.
      */
-    fun getSessionKey(): String = sessionKey
+    fun retrieveSessionKey(): String = sessionKey
 
     companion object {
         // Abstract namespace socket (starts with null byte internally)

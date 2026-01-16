@@ -1,18 +1,21 @@
 package com.podcast.app.api
 
 import android.content.Context
-import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.podcast.app.data.remote.api.PodcastIndexApi
+import com.podcast.app.data.remote.api.PodcastIndexAuthInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -30,6 +33,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object ApiModule {
 
+    private const val BASE_URL = "https://api.podcastindex.org/api/1.0/"
     private const val CACHE_SIZE_BYTES = 10L * 1024 * 1024 // 10 MB
     private const val CONNECT_TIMEOUT_SECONDS = 30L
     private const val READ_TIMEOUT_SECONDS = 30L
@@ -42,6 +46,7 @@ object ApiModule {
      * - isLenient: Handle minor formatting issues
      * - coerceInputValues: Convert null to default values for non-nullable fields
      */
+    @OptIn(ExperimentalSerializationApi::class)
     @Provides
     @Singleton
     fun provideJson(): Json = Json {
@@ -70,7 +75,7 @@ object ApiModule {
     @Singleton
     fun provideLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) {
+            level = if (com.podcast.app.BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
             } else {
                 HttpLoggingInterceptor.Level.NONE
@@ -122,7 +127,7 @@ object ApiModule {
         val contentType = "application/json".toMediaType()
 
         return Retrofit.Builder()
-            .baseUrl(PodcastIndexApi.BASE_URL)
+            .baseUrl(BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
@@ -136,12 +141,4 @@ object ApiModule {
     fun providePodcastIndexApi(retrofit: Retrofit): PodcastIndexApi {
         return retrofit.create(PodcastIndexApi::class.java)
     }
-}
-
-/**
- * BuildConfig placeholder for module.
- * In actual build, this comes from the generated BuildConfig class.
- */
-private object BuildConfig {
-    const val DEBUG = true // Will be replaced by actual BuildConfig
 }

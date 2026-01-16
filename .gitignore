@@ -1,0 +1,54 @@
+# Android build outputs
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.apk
+*.aab
+*.dex
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Claude Flow runtime files
+.claude-flow/daemon.pid
+.claude-flow/daemon-state.json
+.claude-flow/metrics/
+.swarm/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+ENV/
+
+# MCP server
+mcp-server/htmlcov/
+mcp-server/coverage.xml
+mcp-server/.coverage
+mcp-server/test-results.xml
+
+# Logs
+*.log
+logs/
+
+# Secrets (never commit)
+*.keystore
+*.jks
+google-services.json
+credentials.json
+.env
+.env.local

@@ -29,7 +29,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -120,18 +120,22 @@ fun EpisodesScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refresh() },
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .testTag("episodes_screen")
         ) {
+            if (isRefreshing) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             if (episodes.isEmpty()) {
                 EmptyState(
                     title = "No episodes",
-                    message = "Pull to refresh and check for new episodes"
+                    message = "Check for new episodes",
+                    modifier = Modifier.fillMaxSize()
                 )
             } else {
                 LazyColumn(
@@ -153,9 +157,10 @@ fun EpisodesScreen(
                     items(episodes, key = { it.id }) { episode ->
                         val download = downloads[episode.id]
                         val episodeProgress = progress[episode.id]
-                        val progressPercent = episodeProgress?.let {
-                            if (it.durationSeconds > 0) {
-                                it.positionSeconds.toFloat() / it.durationSeconds
+                        val progressPercent = episodeProgress?.let { prog ->
+                            val duration = prog.durationSeconds ?: 0
+                            if (duration > 0) {
+                                prog.positionSeconds.toFloat() / duration
                             } else 0f
                         } ?: 0f
 
@@ -172,6 +177,11 @@ fun EpisodesScreen(
                 }
             }
         }
+    }
+
+    // Auto-refresh on first load
+    LaunchedEffect(podcastId) {
+        viewModel.refresh()
     }
 }
 
