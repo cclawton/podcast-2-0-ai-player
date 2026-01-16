@@ -7,8 +7,7 @@
     </cloud-backup>
     <device-transfer>
         <!-- Allow database transfer between devices -->
+        <!-- Note: Only included paths are transferred; sharedpref is implicitly excluded -->
         <include domain="database" path="podcast_database" />
-        <!-- Exclude encrypted preferences -->
-        <exclude domain="sharedpref" path="podcast_secure_prefs.xml" />
     </device-transfer>
 </data-extraction-rules>
