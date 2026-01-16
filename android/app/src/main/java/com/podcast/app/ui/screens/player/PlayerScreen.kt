@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,14 +79,15 @@ fun PlayerScreen(
             EmptyState(
                 title = "Nothing playing",
                 message = "Select an episode from your library to start listening",
-                modifier = Modifier.padding(paddingValues)
+                modifier = Modifier.padding(paddingValues).testTag("player_screen")
             )
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 24.dp)
+                    .testTag("player_screen"),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -129,7 +131,7 @@ fun PlayerScreen(
                         value = playbackState.positionMs.toFloat(),
                         onValueChange = { viewModel.seekTo(it.toLong()) },
                         valueRange = 0f..playbackState.durationMs.coerceAtLeast(1).toFloat(),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().testTag("progress_bar")
                     )
 
                     Row(
@@ -159,7 +161,7 @@ fun PlayerScreen(
                 ) {
                     IconButton(
                         onClick = { viewModel.skipBackward(10) },
-                        modifier = Modifier.size(56.dp)
+                        modifier = Modifier.size(56.dp).testTag("skip_backward_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Replay10,
@@ -170,7 +172,7 @@ fun PlayerScreen(
 
                     FilledIconButton(
                         onClick = { viewModel.togglePlayPause() },
-                        modifier = Modifier.size(72.dp)
+                        modifier = Modifier.size(72.dp).testTag("play_pause_button")
                     ) {
                         Icon(
                             imageVector = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -181,7 +183,7 @@ fun PlayerScreen(
 
                     IconButton(
                         onClick = { viewModel.skipForward(10) },
-                        modifier = Modifier.size(56.dp)
+                        modifier = Modifier.size(56.dp).testTag("skip_forward_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Forward10,

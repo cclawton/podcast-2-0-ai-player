@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -125,6 +126,7 @@ fun EpisodesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .testTag("episodes_screen")
         ) {
             if (episodes.isEmpty()) {
                 EmptyState(
@@ -135,7 +137,7 @@ fun EpisodesScreen(
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().testTag("episodes_list")
                 ) {
                     // Podcast header
                     item {
@@ -163,7 +165,8 @@ fun EpisodesScreen(
                             isDownloaded = download?.status == DownloadStatus.COMPLETED,
                             onPlayClick = { viewModel.playEpisode(episode.id) },
                             onDownloadClick = { viewModel.downloadEpisode(episode) },
-                            onClick = { viewModel.playEpisode(episode.id) }
+                            onClick = { viewModel.playEpisode(episode.id) },
+                            modifier = Modifier.testTag("episode_item")
                         )
                     }
                 }

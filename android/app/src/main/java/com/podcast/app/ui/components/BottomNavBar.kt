@@ -2,9 +2,11 @@ package com.podcast.app.ui.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.PlayCircleOutline
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -14,6 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 
 sealed class BottomNavItem(
     val route: String,
@@ -35,6 +40,13 @@ sealed class BottomNavItem(
         unselectedIcon = Icons.Outlined.Search
     )
 
+    data object Player : BottomNavItem(
+        route = "player",
+        label = "Player",
+        selectedIcon = Icons.Filled.PlayCircle,
+        unselectedIcon = Icons.Outlined.PlayCircleOutline
+    )
+
     data object Settings : BottomNavItem(
         route = "settings",
         label = "Settings",
@@ -52,12 +64,19 @@ fun BottomNavBar(
     val items = listOf(
         BottomNavItem.Library,
         BottomNavItem.Search,
+        BottomNavItem.Player,
         BottomNavItem.Settings
     )
 
-    NavigationBar(modifier = modifier) {
+    NavigationBar(modifier = modifier.testTag("bottom_nav")) {
         items.forEach { item ->
             val selected = currentRoute == item.route
+            val testTag = when (item) {
+                BottomNavItem.Library -> "nav_library"
+                BottomNavItem.Search -> "nav_search"
+                BottomNavItem.Player -> "nav_player"
+                BottomNavItem.Settings -> "nav_settings"
+            }
             NavigationBarItem(
                 icon = {
                     Icon(
@@ -67,7 +86,8 @@ fun BottomNavBar(
                 },
                 label = { Text(item.label) },
                 selected = selected,
-                onClick = { onNavigate(item.route) }
+                onClick = { onNavigate(item.route) },
+                modifier = Modifier.testTag(testTag).semantics { this.selected = selected }
             )
         }
     }

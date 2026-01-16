@@ -32,6 +32,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -80,6 +81,7 @@ fun SearchScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .testTag("search_screen")
         ) {
             if (!canSearch) {
                 NetworkDisabledBanner()
@@ -109,17 +111,19 @@ fun SearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
+                    .testTag("search_input")
             ) { }
 
             when {
                 isLoading -> {
-                    LoadingState(message = "Searching...")
+                    LoadingState(message = "Searching...", modifier = Modifier.testTag("search_loading"))
                 }
 
                 query.isNotEmpty() && searchResults.isEmpty() -> {
                     EmptyState(
                         title = "No results",
-                        message = "Try a different search term"
+                        message = "Try a different search term",
+                        modifier = Modifier.testTag("search_empty")
                     )
                 }
 
@@ -129,7 +133,7 @@ fun SearchScreen(
                         contentPadding = PaddingValues(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize().testTag("search_results")
                     ) {
                         items(searchResults, key = { it.podcastIndexId }) { podcast ->
                             PodcastCard(

@@ -38,6 +38,7 @@ fun PodcastNavHost() {
     val showBottomNav = currentRoute in listOf(
         Screen.Library.route,
         Screen.Search.route,
+        Screen.Player.route,
         Screen.Settings.route
     )
 

@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -76,6 +77,7 @@ fun LibraryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .testTag("library_screen")
         ) {
             if (!canUseNetwork) {
                 NetworkDisabledBanner()
@@ -89,7 +91,8 @@ fun LibraryScreen(
                 if (podcasts.isEmpty()) {
                     EmptyState(
                         title = "No podcasts yet",
-                        message = "Search and subscribe to podcasts to build your library"
+                        message = "Search and subscribe to podcasts to build your library",
+                        modifier = Modifier.testTag("library_empty")
                     )
                 } else {
                     Column(modifier = Modifier.fillMaxSize()) {
@@ -105,14 +108,15 @@ fun LibraryScreen(
                             contentPadding = PaddingValues(horizontal = 16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).testTag("library_list")
                         ) {
                             items(podcasts, key = { it.id }) { podcast ->
                                 PodcastCard(
                                     podcast = podcast,
                                     onClick = {
                                         navController.navigate(Screen.Episodes.createRoute(podcast.id))
-                                    }
+                                    },
+                                    modifier = Modifier.testTag("podcast_item")
                                 )
                             }
                         }
