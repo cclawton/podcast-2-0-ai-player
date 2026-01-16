@@ -10,6 +10,7 @@ import com.podcast.app.data.repository.PodcastRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -108,9 +109,14 @@ class PodcastRepositoryTest {
 
     @Test
     fun `unsubscribeFromPodcast updates subscription status`() = runTest {
+        val idSlot = slot<Long>()
+        val subscribedSlot = slot<Boolean>()
+        coEvery { podcastDao.updateSubscription(capture(idSlot), capture(subscribedSlot), any()) } returns Unit
+
         repository.unsubscribeFromPodcast(123)
 
-        coVerify { podcastDao.updateSubscription(123, false) }
+        assertEquals(123L, idSlot.captured)
+        assertEquals(false, subscribedSlot.captured)
     }
 
     private fun createTestPodcast(

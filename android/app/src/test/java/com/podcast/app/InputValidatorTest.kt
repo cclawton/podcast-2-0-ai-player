@@ -21,7 +21,8 @@ class InputValidatorTest {
 
     @Test
     fun `validateId accepts valid IDs`() {
-        val validIds = listOf("1", "123", "999999999", "12345678901234567890")
+        // ID pattern: ^[1-9][0-9]{0,18}$ allows 1-19 digits, first must be non-zero
+        val validIds = listOf("1", "123", "999999999", "1234567890123456789")
         validIds.forEach { id ->
             assertTrue("ID '$id' should be valid", validator.validateId(id).isValid())
         }
