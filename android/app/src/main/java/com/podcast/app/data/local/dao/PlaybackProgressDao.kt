@@ -82,4 +82,11 @@ interface PlaybackProgressDao {
 
     @Query("SELECT COUNT(*) FROM playback_progress WHERE is_completed = 1")
     fun getCompletedCount(): Flow<Int>
+
+    @Query("""
+        SELECT pp.* FROM playback_progress pp
+        INNER JOIN episodes e ON pp.episode_id = e.id
+        WHERE e.podcast_id = :podcastId
+    """)
+    fun getProgressForPodcastFlow(podcastId: Long): Flow<List<PlaybackProgress>>
 }

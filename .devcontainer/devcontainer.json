@@ -1,7 +1,12 @@
 {
   "name": "Podcast 2.0 AI Player - Claude-Flow Environment",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
-  
+
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb"
+  },
+
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20"

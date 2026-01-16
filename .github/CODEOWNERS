@@ -1,0 +1,24 @@
+# CODEOWNERS - Define code owners for automatic review requests
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @podcast-app/maintainers
+
+# CI/CD workflows require maintainer approval
+/.github/workflows/ @podcast-app/maintainers
+/.github/dependabot.yml @podcast-app/maintainers
+
+# Security-sensitive files
+/android/app/proguard-rules.pro @podcast-app/security
+/android/app/src/main/java/com/podcast/app/mcp/ @podcast-app/security
+/mcp-server/ @podcast-app/security
+
+# Android app core
+/android/ @podcast-app/android
+
+# MCP server
+/mcp-server/ @podcast-app/backend
+
+# Documentation
+/docs/ @podcast-app/docs
+*.md @podcast-app/docs

@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2"
+
+jobs:
+  release:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Update version properties
+        working-directory: android
+        run: |
+          mkdir -p app/src/main/res/raw
+          cat > app/src/main/res/raw/version.properties << EOF
+          version.name=${{ steps.version.outputs.version }}
+          version.code=${{ github.run_number }}
+          build.time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          git.commit=${GITHUB_SHA:0:7}
+          git.branch=${GITHUB_REF_NAME}
+          EOF
+
+      - name: Run unit tests
+        working-directory: android
+        run: ./gradlew testReleaseUnitTest --stacktrace
+
+      - name: Build release APK (unsigned)
+        working-directory: android
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            # First release - get all commits
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges | head -50)
+          else
+            # Get commits since previous tag
+            CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          # Write to file for multiline output
+          echo "$CHANGELOG" > changelog.txt
+          echo "Generated changelog with $(echo "$CHANGELOG" | wc -l) entries"
+
+      - name: Rename APK with version
+        run: |
+          mv android/app/build/outputs/apk/release/app-release-unsigned.apk \
+             android/app/build/outputs/apk/release/podcast-app-${{ steps.version.outputs.version }}-unsigned.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Podcast 2.0 AI Player v${{ steps.version.outputs.version }}
+          body_path: changelog.txt
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          files: |
+            android/app/build/outputs/apk/release/podcast-app-${{ steps.version.outputs.version }}-unsigned.apk
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk-${{ steps.version.outputs.version }}
+          path: android/app/build/outputs/apk/release/podcast-app-${{ steps.version.outputs.version }}-unsigned.apk
+          retention-days: 90
+
+      - name: Upload ProGuard mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: proguard-mapping-${{ steps.version.outputs.version }}
+          path: android/app/build/outputs/mapping/release/
+          retention-days: 90
+          if-no-files-found: ignore

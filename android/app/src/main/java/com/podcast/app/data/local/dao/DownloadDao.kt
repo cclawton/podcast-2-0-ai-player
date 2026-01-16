@@ -61,4 +61,14 @@ interface DownloadDao {
 
     @Query("SELECT COUNT(*) FROM downloads WHERE status = 'COMPLETED'")
     fun getDownloadedEpisodeCount(): Flow<Int>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDownload(download: Download): Long
+
+    @Query("""
+        SELECT d.* FROM downloads d
+        INNER JOIN episodes e ON d.episode_id = e.id
+        WHERE e.podcast_id = :podcastId
+    """)
+    fun getDownloadsForPodcastFlow(podcastId: Long): Flow<List<Download>>
 }

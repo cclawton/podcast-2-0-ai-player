@@ -1,9 +1,22 @@
 package com.podcast.app.ui
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.podcast.app.ui.components.BottomNavBar
+import com.podcast.app.ui.screens.episodes.EpisodesScreen
+import com.podcast.app.ui.screens.library.LibraryScreen
+import com.podcast.app.ui.screens.player.PlayerScreen
+import com.podcast.app.ui.screens.search.SearchScreen
+import com.podcast.app.ui.screens.settings.SettingsScreen
 
 sealed class Screen(val route: String) {
     data object Library : Screen("library")
@@ -18,30 +31,67 @@ sealed class Screen(val route: String) {
 @Composable
 fun PodcastNavHost() {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-    NavHost(
-        navController = navController,
-        startDestination = Screen.Library.route
-    ) {
-        composable(Screen.Library.route) {
-            // TODO: LibraryScreen(navController)
+    // Show bottom nav only on main screens
+    val showBottomNav = currentRoute in listOf(
+        Screen.Library.route,
+        Screen.Search.route,
+        Screen.Settings.route
+    )
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomNav) {
+                BottomNavBar(
+                    currentRoute = currentRoute,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(Screen.Library.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
         }
+    ) { paddingValues ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Library.route,
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            composable(Screen.Library.route) {
+                LibraryScreen(navController = navController)
+            }
 
-        composable(Screen.Search.route) {
-            // TODO: SearchScreen(navController)
-        }
+            composable(Screen.Search.route) {
+                SearchScreen(navController = navController)
+            }
 
-        composable(Screen.Player.route) {
-            // TODO: PlayerScreen(navController)
-        }
+            composable(Screen.Player.route) {
+                PlayerScreen(navController = navController)
+            }
 
-        composable(Screen.Episodes.route) { backStackEntry ->
-            val podcastId = backStackEntry.arguments?.getString("podcastId")?.toLongOrNull()
-            // TODO: EpisodesScreen(podcastId, navController)
-        }
+            composable(
+                route = Screen.Episodes.route,
+                arguments = listOf(
+                    navArgument("podcastId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val podcastId = backStackEntry.arguments?.getString("podcastId")?.toLongOrNull()
+                EpisodesScreen(
+                    podcastId = podcastId,
+                    navController = navController
+                )
+            }
 
-        composable(Screen.Settings.route) {
-            // TODO: SettingsScreen(navController)
+            composable(Screen.Settings.route) {
+                SettingsScreen(navController = navController)
+            }
         }
     }
 }
