@@ -89,7 +89,7 @@ fun SearchScreen(
             SearchBar(
                 query = query,
                 onQueryChange = { viewModel.updateQuery(it) },
-                onSearch = { },
+                onSearch = { /* Search triggered by query change */ },
                 active = false,
                 onActiveChange = { },
                 placeholder = { Text("Search podcasts...") },
