@@ -42,7 +42,6 @@ class PlaybackController @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    private var exoPlayer: ExoPlayer? = null
     private var progressJob: Job? = null
 
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -54,19 +53,7 @@ class PlaybackController @Inject constructor(
     private val _queue = MutableStateFlow<List<Episode>>(emptyList())
     val queue: StateFlow<List<Episode>> = _queue.asStateFlow()
 
-    init {
-        initializePlayer()
-    }
-
-    private fun initializePlayer() {
-        exoPlayer = ExoPlayer.Builder(context)
-            .setHandleAudioBecomingNoisy(true)
-            .build()
-            .apply {
-                addListener(playerListener)
-            }
-    }
-
+    // Listener must be defined before player initialization
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             updatePlaybackState { it.copy(isPlaying = isPlaying) }
@@ -96,6 +83,21 @@ class PlaybackController @Inject constructor(
         }
     }
 
+    // Lazy initialization with nullable backing field for proper release
+    private var _exoPlayer: ExoPlayer? = null
+    private val exoPlayer: ExoPlayer
+        get() {
+            if (_exoPlayer == null) {
+                _exoPlayer = ExoPlayer.Builder(context)
+                    .setHandleAudioBecomingNoisy(true)
+                    .build()
+                    .apply {
+                        addListener(playerListener)
+                    }
+            }
+            return _exoPlayer!!
+        }
+
     /**
      * Play a specific episode.
      */
@@ -109,7 +111,7 @@ class PlaybackController @Inject constructor(
             .setUri(episode.audioUrl)
             .build()
 
-        exoPlayer?.apply {
+        exoPlayer.apply {
             setMediaItem(mediaItem)
             prepare()
 
@@ -139,7 +141,7 @@ class PlaybackController @Inject constructor(
      * Pause playback.
      */
     fun pause() {
-        exoPlayer?.pause()
+        _exoPlayer?.pause()
         saveCurrentProgress()
     }
 
@@ -147,14 +149,14 @@ class PlaybackController @Inject constructor(
      * Resume playback.
      */
     fun resume() {
-        exoPlayer?.play()
+        _exoPlayer?.play()
     }
 
     /**
      * Toggle play/pause.
      */
     fun togglePlayPause() {
-        val player = exoPlayer ?: return
+        val player = _exoPlayer ?: return
         if (player.isPlaying) {
             pause()
         } else {
@@ -166,7 +168,7 @@ class PlaybackController @Inject constructor(
      * Seek to a specific position.
      */
     fun seekTo(positionMs: Long) {
-        exoPlayer?.seekTo(positionMs)
+        _exoPlayer?.seekTo(positionMs)
         updatePosition()
     }
 
@@ -174,7 +176,7 @@ class PlaybackController @Inject constructor(
      * Skip forward by specified seconds.
      */
     fun skipForward(seconds: Int = 15) {
-        val player = exoPlayer ?: return
+        val player = _exoPlayer ?: return
         val newPosition = (player.currentPosition + seconds * 1000).coerceAtMost(player.duration)
         seekTo(newPosition)
     }
@@ -183,7 +185,7 @@ class PlaybackController @Inject constructor(
      * Skip backward by specified seconds.
      */
     fun skipBackward(seconds: Int = 15) {
-        val player = exoPlayer ?: return
+        val player = _exoPlayer ?: return
         val newPosition = (player.currentPosition - seconds * 1000).coerceAtLeast(0)
         seekTo(newPosition)
     }
@@ -193,7 +195,7 @@ class PlaybackController @Inject constructor(
      */
     fun setPlaybackSpeed(speed: Float) {
         val validSpeed = speed.coerceIn(0.5f, 3.0f)
-        exoPlayer?.playbackParameters = PlaybackParameters(validSpeed)
+        _exoPlayer?.playbackParameters = PlaybackParameters(validSpeed)
         updatePlaybackState { it.copy(playbackSpeed = validSpeed) }
     }
 
@@ -202,7 +204,7 @@ class PlaybackController @Inject constructor(
      */
     fun stop() {
         saveCurrentProgress()
-        exoPlayer?.stop()
+        _exoPlayer?.stop()
         _currentEpisode.value = null
         progressJob?.cancel()
     }
@@ -256,7 +258,7 @@ class PlaybackController @Inject constructor(
     }
 
     private fun updatePosition() {
-        val player = exoPlayer ?: return
+        val player = _exoPlayer ?: return
         updatePlaybackState {
             it.copy(
                 positionMs = player.currentPosition,
@@ -267,7 +269,7 @@ class PlaybackController @Inject constructor(
 
     private fun saveCurrentProgress() {
         val episode = _currentEpisode.value ?: return
-        val player = exoPlayer ?: return
+        val player = _exoPlayer ?: return
 
         scope.launch(Dispatchers.IO) {
             val progress = PlaybackProgress(
@@ -300,8 +302,8 @@ class PlaybackController @Inject constructor(
 
     fun release() {
         progressJob?.cancel()
-        exoPlayer?.release()
-        exoPlayer = null
+        _exoPlayer?.release()
+        _exoPlayer = null
     }
 }
 
