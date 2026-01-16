@@ -15,10 +15,6 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   
-  "hostRequirements": {
-    "storage": "64gb"
-  },
-  
   "customizations": {
     "vscode": {
       "extensions": [
