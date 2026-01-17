@@ -93,15 +93,16 @@ object TestData {
         publishedAt = publishedAt
     )
 
-    fun createEpisodeList(podcastId: Long = 1L, count: Int = 5): List<Episode> =
-        (1..count).map { index ->
+    fun createEpisodeList(podcastId: Long = 1L, count: Int = 5, startId: Int = 1): List<Episode> =
+        (0 until count).map { index ->
+            val id = startId + index
             createEpisode(
-                id = index.toLong(),
-                episodeIndexId = (2000 + index).toLong(),
+                id = id.toLong(),
+                episodeIndexId = (2000 + id).toLong(),
                 podcastId = podcastId,
-                title = "Episode $index",
-                audioDuration = 1800 + (index * 300),
-                publishedAt = System.currentTimeMillis() - (index * 86400000L)
+                title = "Episode $id",
+                audioDuration = 1800 + (id * 300),
+                publishedAt = System.currentTimeMillis() - (id * 86400000L)
             )
         }
 

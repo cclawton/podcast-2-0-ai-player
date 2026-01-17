@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-01-17T01:40:21.258Z",
+  "projectRoot": "/workspaces/podcast-2-0-ai-player/android",
+  "structure": {
+    "hasPackageJson": false,
+    "hasTsConfig": false,
+    "hasClaudeConfig": false,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1768614021258
+}

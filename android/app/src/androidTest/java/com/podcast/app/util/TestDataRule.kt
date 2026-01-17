@@ -43,14 +43,14 @@ class TestDataRule @Inject constructor(
             podcastDao.insertPodcast(podcast)
         }
 
-        // Insert sample episodes for first podcast
-        val episodes = TestData.createEpisodeList(podcastId = 1L, count = 5)
+        // Insert sample episodes for first podcast (ids 1-5)
+        val episodes = TestData.createEpisodeList(podcastId = 1L, count = 5, startId = 1)
         episodes.forEach { episode ->
             episodeDao.insertEpisode(episode)
         }
 
-        // Insert episodes for second podcast
-        val moreEpisodes = TestData.createEpisodeList(podcastId = 2L, count = 3)
+        // Insert episodes for second podcast (ids 6-8 to avoid duplicates)
+        val moreEpisodes = TestData.createEpisodeList(podcastId = 2L, count = 3, startId = 6)
         moreEpisodes.forEach { episode ->
             episodeDao.insertEpisode(episode)
         }
@@ -74,14 +74,14 @@ object TestDataPopulator {
             podcastDao.insertPodcast(podcast)
         }
 
-        // Insert sample episodes for first podcast
-        val episodes = TestData.createEpisodeList(podcastId = 1L, count = 5)
+        // Insert sample episodes for first podcast (ids 1-5)
+        val episodes = TestData.createEpisodeList(podcastId = 1L, count = 5, startId = 1)
         episodes.forEach { episode ->
             episodeDao.insertEpisode(episode)
         }
 
-        // Insert episodes for second podcast
-        val moreEpisodes = TestData.createEpisodeList(podcastId = 2L, count = 3)
+        // Insert episodes for second podcast (ids 6-8 to avoid duplicates)
+        val moreEpisodes = TestData.createEpisodeList(podcastId = 2L, count = 3, startId = 6)
         moreEpisodes.forEach { episode ->
             episodeDao.insertEpisode(episode)
         }
