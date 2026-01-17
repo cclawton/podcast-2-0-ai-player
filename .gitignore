@@ -13,11 +13,18 @@ android/local.properties
 *.iml
 .vscode/
 
-# Claude Flow runtime files
-.claude-flow/daemon.pid
-.claude-flow/daemon-state.json
-.claude-flow/metrics/
+# Claude Flow runtime files (anywhere in tree)
+**/daemon.pid
+**/daemon-state.json
+**/.claude-flow/metrics/
 .swarm/
+
+# Kotlin compiler sessions
+**/.kotlin/sessions/
+
+# Test artifacts
+androidTests.zip
+**/test-results/
 
 # OS files
 .DS_Store
