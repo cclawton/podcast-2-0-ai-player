@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -338,7 +339,9 @@ class RssFeedSubscriptionTest {
 
         if (navigatedToEpisodes) {
             // Verify the podcast title "No Agenda" appears somewhere
-            composeRule.onNodeWithText("No Agenda", substring = true).assertExists()
+            // Use onAllNodes since there may be multiple matches (title, description, episodes)
+            val noAgendaNodes = composeRule.onAllNodesWithText("No Agenda", substring = true).fetchSemanticsNodes()
+            assert(noAgendaNodes.isNotEmpty()) { "Expected 'No Agenda' text to appear on Episodes screen" }
         } else {
             // If navigation didn't happen, verify we're in a valid state:
             // Either on search screen (dialog dismissed) or dialog still visible
