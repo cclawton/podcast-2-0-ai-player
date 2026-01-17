@@ -7,19 +7,27 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.podcast.app.data.local.dao.EpisodeDao
+import com.podcast.app.data.local.dao.PodcastDao
+import com.podcast.app.data.local.database.PodcastDatabase
 import com.podcast.app.util.TestTags
+import com.podcast.app.util.TestDataPopulator
 import com.podcast.app.util.waitUntilNodeWithTagExists
 import com.podcast.app.util.waitUntilNodeWithTextExists
 import com.podcast.app.util.assertCountAtLeast
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import javax.inject.Inject
 
 /**
  * Comprehensive UI tests for LibraryScreen.
@@ -45,9 +53,29 @@ class LibraryScreenTest {
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
+    @Inject
+    lateinit var database: PodcastDatabase
+
+    @Inject
+    lateinit var podcastDao: PodcastDao
+
+    @Inject
+    lateinit var episodeDao: EpisodeDao
+
     @Before
     fun setUp() {
         hiltRule.inject()
+        // Populate test data
+        runBlocking {
+            TestDataPopulator.populate(podcastDao, episodeDao)
+        }
+    }
+
+    @After
+    fun tearDown() {
+        runBlocking {
+            TestDataPopulator.clear(database)
+        }
     }
 
     // ================================
@@ -65,8 +93,8 @@ class LibraryScreenTest {
     fun libraryScreen_showsTopAppBar() {
         composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN)
 
-        // Verify "Library" title is displayed
-        composeRule.onNodeWithText("Library").assertIsDisplayed()
+        // Verify "Library" title is displayed in top bar (use first match since it appears in bottom nav too)
+        composeRule.onAllNodesWithText("Library")[0].assertIsDisplayed()
     }
 
     @Test

@@ -5,20 +5,14 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,6 +47,10 @@ class NetworkStateMonitor @Inject constructor(
 
     private val _networkState = MutableStateFlow(NetworkState())
 
+    // Store the main callback for proper cleanup
+    private var mainNetworkCallback: ConnectivityManager.NetworkCallback? = null
+    private val callbackLock = Any()
+
     /**
      * Current network state as StateFlow.
      */
@@ -60,24 +58,27 @@ class NetworkStateMonitor @Inject constructor(
 
     /**
      * Whether network is currently available.
-     * This is a convenience flow that only emits boolean values.
+     * Uses the main callback instead of creating new ones.
      */
-    val isNetworkAvailable: StateFlow<Boolean> = createNetworkAvailabilityFlow()
-        .stateIn(
-            scope = scope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = checkNetworkNow()
-        )
+    val isNetworkAvailable: StateFlow<Boolean>
+        get() = _networkState.mapToBoolean { it.isAvailable }
 
     /**
      * Whether we're on an unmetered connection (Wi-Fi, Ethernet).
+     * Uses the main callback instead of creating new ones.
      */
-    val isUnmeteredConnection: StateFlow<Boolean> = createUnmeteredFlow()
-        .stateIn(
-            scope = scope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = checkUnmeteredNow()
-        )
+    val isUnmeteredConnection: StateFlow<Boolean>
+        get() = _networkState.mapToBoolean { it.isUnmetered }
+
+    private fun StateFlow<NetworkState>.mapToBoolean(transform: (NetworkState) -> Boolean): StateFlow<Boolean> {
+        return MutableStateFlow(transform(value)).also { result ->
+            scope.launch {
+                this@mapToBoolean.collect { state ->
+                    result.value = transform(state)
+                }
+            }
+        }
+    }
 
     init {
         // Initial state check
@@ -87,111 +88,21 @@ class NetworkStateMonitor @Inject constructor(
     }
 
     /**
-     * Create a flow that emits network availability changes.
+     * Release resources. Call this when the monitor is no longer needed.
+     * Important for tests to avoid TooManyRequestsException.
      */
-    private fun createNetworkAvailabilityFlow(): Flow<Boolean> = callbackFlow {
-        val cm = connectivityManager
-
-        if (cm == null) {
-            // No connectivity manager - assume offline
-            trySend(false)
-            awaitClose { }
-            return@callbackFlow
-        }
-
-        val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                trySend(true)
-            }
-
-            override fun onLost(network: Network) {
-                trySend(false)
-            }
-
-            override fun onCapabilitiesChanged(
-                network: Network,
-                capabilities: NetworkCapabilities
-            ) {
-                val hasInternet = capabilities.hasCapability(
-                    NetworkCapabilities.NET_CAPABILITY_INTERNET
-                )
-                val validated = capabilities.hasCapability(
-                    NetworkCapabilities.NET_CAPABILITY_VALIDATED
-                )
-                trySend(hasInternet && validated)
+    fun release() {
+        synchronized(callbackLock) {
+            mainNetworkCallback?.let { callback ->
+                try {
+                    connectivityManager?.unregisterNetworkCallback(callback)
+                } catch (e: Exception) {
+                    // Already unregistered or other error - ignore
+                }
+                mainNetworkCallback = null
             }
         }
-
-        try {
-            val request = NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
-
-            cm.registerNetworkCallback(request, callback)
-
-            // Send initial state
-            trySend(checkNetworkNow())
-        } catch (e: SecurityException) {
-            // Permission denied
-            trySend(false)
-        }
-
-        awaitClose {
-            try {
-                cm.unregisterNetworkCallback(callback)
-            } catch (e: Exception) {
-                // Ignore - already unregistered
-            }
-        }
-    }.distinctUntilChanged()
-
-    /**
-     * Create a flow for unmetered connection status.
-     */
-    private fun createUnmeteredFlow(): Flow<Boolean> = callbackFlow {
-        val cm = connectivityManager
-
-        if (cm == null) {
-            trySend(false)
-            awaitClose { }
-            return@callbackFlow
-        }
-
-        val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onCapabilitiesChanged(
-                network: Network,
-                capabilities: NetworkCapabilities
-            ) {
-                val unmetered = capabilities.hasCapability(
-                    NetworkCapabilities.NET_CAPABILITY_NOT_METERED
-                )
-                trySend(unmetered)
-            }
-
-            override fun onLost(network: Network) {
-                trySend(false)
-            }
-        }
-
-        try {
-            val request = NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
-
-            cm.registerNetworkCallback(request, callback)
-            trySend(checkUnmeteredNow())
-        } catch (e: SecurityException) {
-            trySend(false)
-        }
-
-        awaitClose {
-            try {
-                cm.unregisterNetworkCallback(callback)
-            } catch (e: Exception) {
-                // Ignore
-            }
-        }
-    }.distinctUntilChanged()
+    }
 
     /**
      * Check network availability synchronously.
@@ -262,35 +173,42 @@ class NetworkStateMonitor @Inject constructor(
 
     /**
      * Register network callback for real-time updates.
+     * Only registers one callback and stores it for cleanup.
      */
     private fun registerNetworkCallback() {
         val cm = connectivityManager ?: return
 
-        try {
-            val request = NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
+        synchronized(callbackLock) {
+            // Don't register if already registered
+            if (mainNetworkCallback != null) return
 
-            val callback = object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    updateNetworkState()
+            try {
+                val request = NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
+
+                val callback = object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) {
+                        updateNetworkState()
+                    }
+
+                    override fun onLost(network: Network) {
+                        updateNetworkState()
+                    }
+
+                    override fun onCapabilitiesChanged(
+                        network: Network,
+                        capabilities: NetworkCapabilities
+                    ) {
+                        updateNetworkState()
+                    }
                 }
 
-                override fun onLost(network: Network) {
-                    updateNetworkState()
-                }
-
-                override fun onCapabilitiesChanged(
-                    network: Network,
-                    capabilities: NetworkCapabilities
-                ) {
-                    updateNetworkState()
-                }
+                cm.registerNetworkCallback(request, callback)
+                mainNetworkCallback = callback
+            } catch (e: SecurityException) {
+                // Permission denied - stay in offline mode
             }
-
-            cm.registerNetworkCallback(request, callback)
-        } catch (e: SecurityException) {
-            // Permission denied - stay in offline mode
         }
     }
 }

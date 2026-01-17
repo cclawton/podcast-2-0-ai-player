@@ -10,16 +10,23 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.podcast.app.data.local.dao.EpisodeDao
+import com.podcast.app.data.local.dao.PodcastDao
+import com.podcast.app.data.local.database.PodcastDatabase
 import com.podcast.app.util.TestTags
+import com.podcast.app.util.TestDataPopulator
 import com.podcast.app.util.waitUntilNodeWithTagExists
 import com.podcast.app.util.waitUntilNodeWithTextExists
 import com.podcast.app.util.assertCountAtLeast
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import javax.inject.Inject
 
 /**
  * Comprehensive UI tests for EpisodesScreen.
@@ -46,11 +53,31 @@ class EpisodesScreenTest {
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
+    @Inject
+    lateinit var database: PodcastDatabase
+
+    @Inject
+    lateinit var podcastDao: PodcastDao
+
+    @Inject
+    lateinit var episodeDao: EpisodeDao
+
     @Before
     fun setUp() {
         hiltRule.inject()
+        // Populate test data
+        runBlocking {
+            TestDataPopulator.populate(podcastDao, episodeDao)
+        }
         // Navigate to Episodes screen (via Library -> click podcast)
         navigateToEpisodesScreen()
+    }
+
+    @After
+    fun tearDown() {
+        runBlocking {
+            TestDataPopulator.clear(database)
+        }
     }
 
     private fun navigateToEpisodesScreen() {
