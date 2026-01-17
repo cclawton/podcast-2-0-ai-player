@@ -3,7 +3,6 @@ package com.podcast.app.ui.screens.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.podcast.app.data.local.entities.Podcast
-import com.podcast.app.data.remote.api.PodcastIndexAuthException
 import com.podcast.app.data.repository.PodcastRepository
 import com.podcast.app.privacy.NetworkFeature
 import com.podcast.app.privacy.PrivacyManager
@@ -87,10 +86,7 @@ class SearchViewModel @Inject constructor(
                 _searchResults.value = podcasts
             }
             .onFailure { exception ->
-                _error.value = when (exception) {
-                    is PodcastIndexAuthException -> exception.message
-                    else -> "Search failed: ${exception.message}"
-                }
+                _error.value = exception.message ?: "Search failed"
             }
 
         _isLoading.value = false

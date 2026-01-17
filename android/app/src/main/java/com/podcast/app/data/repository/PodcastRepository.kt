@@ -10,11 +10,13 @@ import com.podcast.app.data.remote.models.PodcastFeed
 import com.podcast.app.data.rss.RssFeedParser
 import com.podcast.app.data.rss.RssParseException
 import com.podcast.app.di.RssHttpClient
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import retrofit2.HttpException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,6 +36,9 @@ class PodcastRepository @Inject constructor(
     private val rssFeedParser: RssFeedParser,
     @RssHttpClient private val rssHttpClient: OkHttpClient
 ) {
+    companion object {
+        private const val TAG = "PodcastRepository"
+    }
     /**
      * Get subscribed podcasts from local database.
      */
@@ -51,9 +56,16 @@ class PodcastRepository @Inject constructor(
             // Cache results locally
             podcastDao.insertPodcasts(podcasts)
             Result.success(podcasts)
+        } catch (e: HttpException) {
+            Log.e(TAG, "Search failed with HTTP ${e.code()}: ${e.message()}")
+            val errorMessage = when (e.code()) {
+                401, 403 -> "API authentication failed - check credentials"
+                else -> "Search failed (HTTP ${e.code()})"
+            }
+            Result.failure(Exception(errorMessage))
         } catch (e: Exception) {
-            // Try to return cached results
-            Result.failure(e)
+            Log.e(TAG, "Search failed: ${e.message}", e)
+            Result.failure(Exception("Search failed: ${e.message}"))
         }
     }
 
@@ -228,8 +240,16 @@ class PodcastRepository @Inject constructor(
             val response = api.getTrendingPodcasts(limit)
             val podcasts = response.feeds.map { it.toPodcast() }
             Result.success(podcasts)
+        } catch (e: HttpException) {
+            Log.e(TAG, "Trending failed with HTTP ${e.code()}: ${e.message()}")
+            val errorMessage = when (e.code()) {
+                401, 403 -> "API authentication failed - check credentials"
+                else -> "Failed to load trending (HTTP ${e.code()})"
+            }
+            Result.failure(Exception(errorMessage))
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e(TAG, "Trending failed: ${e.message}", e)
+            Result.failure(Exception("Failed to load trending: ${e.message}"))
         }
     }
 

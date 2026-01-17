@@ -1,21 +1,26 @@
 package com.podcast.app.data.remote.api
 
+import android.util.Log
 import okhttp3.Interceptor
 import okhttp3.Response
+import java.io.IOException
 import java.security.MessageDigest
 import javax.inject.Inject
 
 /**
  * Exception thrown when Podcast Index API authentication fails.
+ * Extends IOException so Retrofit treats it as a network error.
  */
-class PodcastIndexAuthException(message: String) : Exception(message) {
+class PodcastIndexAuthException(message: String) : IOException(message) {
     companion object {
+        private const val TAG = "PodcastIndexAuth"
+
         fun missingCredentials() = PodcastIndexAuthException(
-            "Podcast Index API credentials not configured. Please add your API key and secret."
+            "API credentials not configured"
         )
 
         fun invalidCredentials() = PodcastIndexAuthException(
-            "Podcast Index API authentication failed. Please check your API key and secret."
+            "API authentication failed - check credentials"
         )
     }
 }
@@ -33,12 +38,17 @@ class PodcastIndexAuthInterceptor @Inject constructor(
     private val credentialsProvider: PodcastIndexCredentialsProvider
 ) : Interceptor {
 
+    companion object {
+        private const val TAG = "PodcastIndexAuth"
+    }
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val credentials = credentialsProvider.getCredentials()
 
-        // Throw specific exception if credentials not configured
+        // If no credentials, proceed without auth - API will return 401
         if (credentials == null || credentials.apiKey.isBlank() || credentials.apiSecret.isBlank()) {
-            throw PodcastIndexAuthException.missingCredentials()
+            Log.w(TAG, "No API credentials configured - request will likely fail")
+            return chain.proceed(chain.request())
         }
 
         val timestamp = (System.currentTimeMillis() / 1000).toString()
@@ -51,15 +61,7 @@ class PodcastIndexAuthInterceptor @Inject constructor(
             .addHeader("User-Agent", "PodcastApp/1.0")
             .build()
 
-        val response = chain.proceed(authenticatedRequest)
-
-        // Check for auth failures (401 Unauthorized or 403 Forbidden)
-        if (response.code == 401 || response.code == 403) {
-            response.close()
-            throw PodcastIndexAuthException.invalidCredentials()
-        }
-
-        return response
+        return chain.proceed(authenticatedRequest)
     }
 
     private fun generateAuthHash(apiKey: String, apiSecret: String, timestamp: String): String {
