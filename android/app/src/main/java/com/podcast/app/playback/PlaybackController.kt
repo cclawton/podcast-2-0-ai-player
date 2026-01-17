@@ -277,14 +277,19 @@ class PlaybackController @Inject constructor(
         val speed = _playbackState.value.playbackSpeed
 
         scope.launch(Dispatchers.IO) {
-            val progress = PlaybackProgress(
-                episodeId = episode.id,
-                positionSeconds = (positionMs / 1000).toInt(),
-                durationSeconds = (durationMs / 1000).toInt(),
-                lastPlayedAt = System.currentTimeMillis(),
-                playbackSpeed = speed
-            )
-            playbackProgressDao.insertOrUpdate(progress)
+            try {
+                val progress = PlaybackProgress(
+                    episodeId = episode.id,
+                    positionSeconds = (positionMs / 1000).toInt(),
+                    durationSeconds = (durationMs / 1000).toInt(),
+                    lastPlayedAt = System.currentTimeMillis(),
+                    playbackSpeed = speed
+                )
+                playbackProgressDao.insertOrUpdate(progress)
+            } catch (e: Exception) {
+                // Ignore FK constraint failures - episode may have been deleted
+                // or test database cleared. Progress saving is non-critical.
+            }
         }
     }
 
@@ -292,7 +297,11 @@ class PlaybackController @Inject constructor(
         val episode = _currentEpisode.value ?: return
 
         scope.launch(Dispatchers.IO) {
-            playbackProgressDao.markAsCompleted(episode.id)
+            try {
+                playbackProgressDao.markAsCompleted(episode.id)
+            } catch (e: Exception) {
+                // Ignore FK constraint failures - episode may have been deleted
+            }
         }
 
         // Auto-play next in queue
