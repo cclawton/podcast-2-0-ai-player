@@ -1,8 +1,10 @@
 package com.podcast.app.data.remote.api
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.podcast.app.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,6 +15,7 @@ import javax.inject.Singleton
  * Secure credentials provider using EncryptedSharedPreferences.
  *
  * API keys are stored encrypted at rest using Android Keystore.
+ * On first access, credentials are auto-initialized from BuildConfig.
  * This is compliant with GrapheneOS security requirements.
  */
 @Singleton
@@ -33,14 +36,30 @@ class SecureCredentialsProvider @Inject constructor(
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        ).also { prefs ->
+            initializeFromBuildConfigIfNeeded(prefs)
+        }
+    }
+
+    /**
+     * Auto-initialize credentials from BuildConfig on first access.
+     * This allows embedding API keys at build time while storing them securely.
+     */
+    private fun initializeFromBuildConfigIfNeeded(prefs: SharedPreferences) {
+        val existingKey = prefs.getString(KEY_API_KEY, null)
+        if (existingKey.isNullOrBlank() && BuildConfig.PODCAST_INDEX_API_KEY.isNotBlank()) {
+            prefs.edit()
+                .putString(KEY_API_KEY, BuildConfig.PODCAST_INDEX_API_KEY)
+                .putString(KEY_API_SECRET, BuildConfig.PODCAST_INDEX_API_SECRET)
+                .apply()
+        }
     }
 
     override fun getCredentials(): PodcastIndexCredentials? {
         val apiKey = encryptedPrefs.getString(KEY_API_KEY, null)
         val apiSecret = encryptedPrefs.getString(KEY_API_SECRET, null)
 
-        return if (apiKey != null && apiSecret != null) {
+        return if (!apiKey.isNullOrBlank() && !apiSecret.isNullOrBlank()) {
             PodcastIndexCredentials(apiKey, apiSecret)
         } else {
             null

@@ -31,3 +31,7 @@ android.nonTransitiveRClass=true
 
 # Enable configuration caching for faster builds
 org.gradle.configuration-cache=true
+
+# Podcast Index API credentials
+PODCAST_INDEX_API_KEY=your_api_key_here
+PODCAST_INDEX_API_SECRET=your_api_secret_here

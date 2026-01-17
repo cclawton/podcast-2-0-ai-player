@@ -59,3 +59,4 @@ google-services.json
 credentials.json
 .env
 .env.local
+android/gradle.properties

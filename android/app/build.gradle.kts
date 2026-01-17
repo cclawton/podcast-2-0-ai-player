@@ -20,6 +20,17 @@ android {
 
         testInstrumentationRunner = "com.podcast.app.util.HiltTestRunner"
 
+        // Podcast Index API credentials (from gradle.properties or environment)
+        val podcastIndexApiKey = findProperty("PODCAST_INDEX_API_KEY")?.toString()
+            ?: System.getenv("PODCAST_INDEX_API_KEY")
+            ?: ""
+        val podcastIndexApiSecret = findProperty("PODCAST_INDEX_API_SECRET")?.toString()
+            ?: System.getenv("PODCAST_INDEX_API_SECRET")
+            ?: ""
+
+        buildConfigField("String", "PODCAST_INDEX_API_KEY", "\"$podcastIndexApiKey\"")
+        buildConfigField("String", "PODCAST_INDEX_API_SECRET", "\"$podcastIndexApiSecret\"")
+
         // Room schema export
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
