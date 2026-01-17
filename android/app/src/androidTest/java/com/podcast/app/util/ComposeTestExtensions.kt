@@ -265,6 +265,7 @@ object TestTags {
     const val SEARCH_INPUT = "search_input"
     const val SEARCH_BUTTON = "search_button"
     const val SEARCH_RESULTS = "search_results"
+    const val SEARCH_RESULT_ITEM = "search_result_item"
     const val SEARCH_EMPTY = "search_empty"
     const val SEARCH_ERROR = "search_error"
     const val SEARCH_LOADING = "search_loading"

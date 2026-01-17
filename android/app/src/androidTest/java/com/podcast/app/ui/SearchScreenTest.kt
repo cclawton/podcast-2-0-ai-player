@@ -17,6 +17,7 @@ import com.podcast.app.data.local.dao.PodcastDao
 import com.podcast.app.data.local.database.PodcastDatabase
 import com.podcast.app.util.TestTags
 import com.podcast.app.util.TestDataPopulator
+import com.podcast.app.util.assertCountAtLeast
 import com.podcast.app.util.waitUntilNodeWithTagExists
 import com.podcast.app.util.waitUntilNodeWithTextExists
 import com.podcast.app.util.waitUntilNodeWithTagDoesNotExist
@@ -164,29 +165,83 @@ class SearchScreenTest {
     }
 
     // ================================
-    // Search Results Tests
+    // Search Results Tests (STRICT - must return results)
     // ================================
 
     @Test
-    fun searchScreen_showsSearchResults_afterSearch() {
-        // Enter search query
+    fun searchScreen_searchForNews_returnsResults() {
+        // Search for a common term that MUST return results
         composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).performClick()
-        composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).performTextInput("podcast")
+        composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).performTextInput("news")
         composeRule.waitForIdle()
 
-        // Wait for results to load (with timeout)
-        try {
-            composeRule.waitUntilNodeWithTagExists(TestTags.SEARCH_RESULTS, timeoutMillis = 5000)
-            composeRule.onNodeWithTag(TestTags.SEARCH_RESULTS).assertIsDisplayed()
-        } catch (e: Throwable) {
-            // Results might not appear if network is disabled or search fails
-            // Check for empty state or loading state
-            try {
-                composeRule.onNodeWithTag(TestTags.SEARCH_EMPTY).assertIsDisplayed()
-            } catch (e2: Exception) {
-                composeRule.onNodeWithTag(TestTags.SEARCH_LOADING).assertExists()
-            }
+        // Wait for loading to complete and results to appear
+        composeRule.waitUntilNodeWithTagExists(TestTags.SEARCH_RESULTS, timeoutMillis = 10000)
+        composeRule.onNodeWithTag(TestTags.SEARCH_RESULTS).assertIsDisplayed()
+
+        // Verify at least one result item is displayed
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM)
+                .fetchSemanticsNodes().isNotEmpty()
         }
+        composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM).assertCountAtLeast(1)
+    }
+
+    @Test
+    fun searchScreen_searchForComedy_returnsResults() {
+        // Search for another common term
+        composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).performClick()
+        composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).performTextInput("comedy")
+        composeRule.waitForIdle()
+
+        // Wait for results
+        composeRule.waitUntilNodeWithTagExists(TestTags.SEARCH_RESULTS, timeoutMillis = 10000)
+        composeRule.onNodeWithTag(TestTags.SEARCH_RESULTS).assertIsDisplayed()
+
+        // Verify results exist
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM).assertCountAtLeast(1)
+    }
+
+    @Test
+    fun searchScreen_searchForFood_returnsResults() {
+        // Search for food - a common podcast topic
+        composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).performClick()
+        composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).performTextInput("food")
+        composeRule.waitForIdle()
+
+        // Wait for results
+        composeRule.waitUntilNodeWithTagExists(TestTags.SEARCH_RESULTS, timeoutMillis = 10000)
+        composeRule.onNodeWithTag(TestTags.SEARCH_RESULTS).assertIsDisplayed()
+
+        // Verify results exist
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM).assertCountAtLeast(1)
+    }
+
+    @Test
+    fun searchScreen_searchForTechnology_returnsMultipleResults() {
+        // Technology is a popular topic - should return multiple results
+        composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).performClick()
+        composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).performTextInput("technology")
+        composeRule.waitForIdle()
+
+        // Wait for results
+        composeRule.waitUntilNodeWithTagExists(TestTags.SEARCH_RESULTS, timeoutMillis = 10000)
+        composeRule.onNodeWithTag(TestTags.SEARCH_RESULTS).assertIsDisplayed()
+
+        // Verify at least 3 results (technology is very popular)
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM)
+                .fetchSemanticsNodes().size >= 3
+        }
+        composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM).assertCountAtLeast(3)
     }
 
     @Test
@@ -197,17 +252,13 @@ class SearchScreenTest {
             .performTextInput("xyzabcdef123456789nonexistent")
         composeRule.waitForIdle()
 
-        // Wait and check for empty state
-        try {
-            composeRule.waitUntilNodeWithTagExists(TestTags.SEARCH_EMPTY, timeoutMillis = 5000)
-            composeRule.onNodeWithTag(TestTags.SEARCH_EMPTY).assertIsDisplayed()
+        // Wait for empty state (search completes with no results)
+        composeRule.waitUntilNodeWithTagExists(TestTags.SEARCH_EMPTY, timeoutMillis = 10000)
+        composeRule.onNodeWithTag(TestTags.SEARCH_EMPTY).assertIsDisplayed()
 
-            // Verify empty state messages
-            composeRule.onNodeWithText("No results").assertIsDisplayed()
-            composeRule.onNodeWithText("Try a different search term").assertIsDisplayed()
-        } catch (e: Throwable) {
-            // Search might still be loading or network is unavailable
-        }
+        // Verify empty state messages
+        composeRule.onNodeWithText("No results").assertIsDisplayed()
+        composeRule.onNodeWithText("Try a different search term").assertIsDisplayed()
     }
 
     // ================================
@@ -232,31 +283,17 @@ class SearchScreenTest {
 
     @Test
     fun searchScreen_showsTrendingPodcasts_whenSearchEmpty() {
-        // With empty search, trending podcasts may be displayed
-        try {
-            composeRule.waitUntilNodeWithTextExists("Trending Podcasts", timeoutMillis = 5000)
-            composeRule.onNodeWithText("Trending Podcasts").assertIsDisplayed()
-        } catch (e: Throwable) {
-            // Trending podcasts may not be available if network is disabled
-            // Check for discover state
-            try {
-                composeRule.onNodeWithText("Discover podcasts").assertIsDisplayed()
-            } catch (e2: Exception) {
-                // Neither trending nor discover state - acceptable
-            }
-        }
-    }
+        // With empty search, trending podcasts should be displayed (network enabled)
+        // Wait for trending podcasts to load
+        composeRule.waitUntilNodeWithTextExists("Trending Podcasts", timeoutMillis = 10000)
+        composeRule.onNodeWithText("Trending Podcasts").assertIsDisplayed()
 
-    @Test
-    fun searchScreen_showsDiscoverMessage_whenEmptyInitialState() {
-        try {
-            // Check for initial discover message
-            composeRule.onNodeWithText("Discover podcasts").assertIsDisplayed()
-            composeRule.onNodeWithText("Search for your favorite shows or browse trending podcasts")
-                .assertIsDisplayed()
-        } catch (e: Throwable) {
-            // Trending podcasts might be showing instead
+        // Verify at least one trending podcast is displayed
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM)
+                .fetchSemanticsNodes().isNotEmpty()
         }
+        composeRule.onAllNodesWithTag(TestTags.SEARCH_RESULT_ITEM).assertCountAtLeast(1)
     }
 
     // ================================
