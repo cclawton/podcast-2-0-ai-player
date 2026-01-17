@@ -39,19 +39,19 @@ class PlaybackController @Inject constructor(
     private val episodeDao: EpisodeDao,
     private val podcastDao: PodcastDao,
     private val playbackProgressDao: PlaybackProgressDao
-) {
+) : IPlaybackController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private var progressJob: Job? = null
 
     private val _playbackState = MutableStateFlow(PlaybackState())
-    val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
+    override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
     private val _currentEpisode = MutableStateFlow<Episode?>(null)
-    val currentEpisode: StateFlow<Episode?> = _currentEpisode.asStateFlow()
+    override val currentEpisode: StateFlow<Episode?> = _currentEpisode.asStateFlow()
 
     private val _queue = MutableStateFlow<List<Episode>>(emptyList())
-    val queue: StateFlow<List<Episode>> = _queue.asStateFlow()
+    override val queue: StateFlow<List<Episode>> = _queue.asStateFlow()
 
     // Listener must be defined before player initialization
     private val playerListener = object : Player.Listener {
@@ -101,7 +101,7 @@ class PlaybackController @Inject constructor(
     /**
      * Play a specific episode.
      */
-    suspend fun playEpisode(episodeId: Long, startPositionMs: Int = 0) {
+    override suspend fun playEpisode(episodeId: Long, startPositionMs: Int) {
         val episode = episodeDao.getEpisodeById(episodeId) ?: return
 
         _currentEpisode.value = episode
@@ -140,7 +140,7 @@ class PlaybackController @Inject constructor(
     /**
      * Pause playback.
      */
-    fun pause() {
+    override fun pause() {
         _exoPlayer?.pause()
         saveCurrentProgress()
     }
@@ -148,14 +148,14 @@ class PlaybackController @Inject constructor(
     /**
      * Resume playback.
      */
-    fun resume() {
+    override fun resume() {
         _exoPlayer?.play()
     }
 
     /**
      * Toggle play/pause.
      */
-    fun togglePlayPause() {
+    override fun togglePlayPause() {
         val player = _exoPlayer ?: return
         if (player.isPlaying) {
             pause()
@@ -167,7 +167,7 @@ class PlaybackController @Inject constructor(
     /**
      * Seek to a specific position.
      */
-    fun seekTo(positionMs: Long) {
+    override fun seekTo(positionMs: Long) {
         _exoPlayer?.seekTo(positionMs)
         updatePosition()
     }
@@ -175,7 +175,7 @@ class PlaybackController @Inject constructor(
     /**
      * Skip forward by specified seconds.
      */
-    fun skipForward(seconds: Int = 15) {
+    override fun skipForward(seconds: Int) {
         val player = _exoPlayer ?: return
         val newPosition = (player.currentPosition + seconds * 1000).coerceAtMost(player.duration)
         seekTo(newPosition)
@@ -184,7 +184,7 @@ class PlaybackController @Inject constructor(
     /**
      * Skip backward by specified seconds.
      */
-    fun skipBackward(seconds: Int = 15) {
+    override fun skipBackward(seconds: Int) {
         val player = _exoPlayer ?: return
         val newPosition = (player.currentPosition - seconds * 1000).coerceAtLeast(0)
         seekTo(newPosition)
@@ -193,7 +193,7 @@ class PlaybackController @Inject constructor(
     /**
      * Set playback speed.
      */
-    fun setPlaybackSpeed(speed: Float) {
+    override fun setPlaybackSpeed(speed: Float) {
         val validSpeed = speed.coerceIn(0.5f, 3.0f)
         _exoPlayer?.playbackParameters = PlaybackParameters(validSpeed)
         updatePlaybackState { it.copy(playbackSpeed = validSpeed) }
@@ -202,7 +202,7 @@ class PlaybackController @Inject constructor(
     /**
      * Stop playback and release resources.
      */
-    fun stop() {
+    override fun stop() {
         saveCurrentProgress()
         _exoPlayer?.stop()
         _currentEpisode.value = null
@@ -212,28 +212,28 @@ class PlaybackController @Inject constructor(
     /**
      * Add episode to queue.
      */
-    fun addToQueue(episode: Episode) {
+    override fun addToQueue(episode: Episode) {
         _queue.value = _queue.value + episode
     }
 
     /**
      * Remove episode from queue.
      */
-    fun removeFromQueue(episode: Episode) {
+    override fun removeFromQueue(episode: Episode) {
         _queue.value = _queue.value.filter { it.id != episode.id }
     }
 
     /**
      * Clear the queue.
      */
-    fun clearQueue() {
+    override fun clearQueue() {
         _queue.value = emptyList()
     }
 
     /**
      * Play next episode in queue.
      */
-    suspend fun playNext() {
+    override suspend fun playNext() {
         val nextEpisode = _queue.value.firstOrNull()
         if (nextEpisode != null) {
             _queue.value = _queue.value.drop(1)
@@ -244,7 +244,7 @@ class PlaybackController @Inject constructor(
     /**
      * Get current playback status for MCP.
      */
-    fun getPlaybackStatus(): PlaybackState = _playbackState.value
+    override fun getPlaybackStatus(): PlaybackState = _playbackState.value
 
     private fun startProgressTracking() {
         progressJob?.cancel()
@@ -314,7 +314,7 @@ class PlaybackController @Inject constructor(
         _playbackState.value = update(_playbackState.value)
     }
 
-    fun release() {
+    override fun release() {
         progressJob?.cancel()
         _exoPlayer?.release()
         _exoPlayer = null

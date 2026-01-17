@@ -16,7 +16,15 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+/**
+ * Qualifier for the plain OkHttpClient used for RSS feed fetching.
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class RssHttpClient
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -67,6 +75,24 @@ object NetworkModule {
     @Singleton
     fun providePodcastIndexApi(retrofit: Retrofit): PodcastIndexApi {
         return retrofit.create(PodcastIndexApi::class.java)
+    }
+
+    /**
+     * Provides a plain OkHttpClient for fetching RSS feeds.
+     * This client does not include the Podcast Index auth interceptor.
+     */
+    @Provides
+    @Singleton
+    @RssHttpClient
+    fun provideRssHttpClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BASIC
+            })
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
     }
 }
 

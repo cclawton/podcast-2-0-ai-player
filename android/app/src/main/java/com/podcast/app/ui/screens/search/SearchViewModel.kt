@@ -38,6 +38,15 @@ class SearchViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _showRssDialog = MutableStateFlow(false)
+    val showRssDialog: StateFlow<Boolean> = _showRssDialog.asStateFlow()
+
+    private val _rssUrl = MutableStateFlow("")
+    val rssUrl: StateFlow<String> = _rssUrl.asStateFlow()
+
+    private val _rssSubscriptionSuccess = MutableStateFlow<Podcast?>(null)
+    val rssSubscriptionSuccess: StateFlow<Podcast?> = _rssSubscriptionSuccess.asStateFlow()
+
     val canSearch: StateFlow<Boolean> = privacyManager.canUseNetwork
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -117,5 +126,55 @@ class SearchViewModel @Inject constructor(
 
     fun clearError() {
         _error.value = null
+    }
+
+    // ================================
+    // RSS Feed Subscription
+    // ================================
+
+    fun showRssDialog() {
+        _showRssDialog.value = true
+    }
+
+    fun hideRssDialog() {
+        _showRssDialog.value = false
+        _rssUrl.value = ""
+    }
+
+    fun updateRssUrl(url: String) {
+        _rssUrl.value = url
+    }
+
+    fun subscribeFromRss() {
+        val url = _rssUrl.value.trim()
+        if (url.isBlank()) {
+            _error.value = "Please enter an RSS feed URL"
+            return
+        }
+
+        viewModelScope.launch {
+            if (!privacyManager.isFeatureAllowed(NetworkFeature.FEED_UPDATES)) {
+                _error.value = "Network access is disabled. Enable it in settings to add RSS feeds."
+                return@launch
+            }
+
+            _isLoading.value = true
+            _error.value = null
+
+            repository.subscribeFromRssFeed(url)
+                .onSuccess { podcast ->
+                    _rssSubscriptionSuccess.value = podcast
+                    hideRssDialog()
+                }
+                .onFailure { exception ->
+                    _error.value = exception.message ?: "Failed to subscribe to RSS feed"
+                }
+
+            _isLoading.value = false
+        }
+    }
+
+    fun clearRssSubscriptionSuccess() {
+        _rssSubscriptionSuccess.value = null
     }
 }

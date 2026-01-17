@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.data.local.dao.PodcastDao
-import com.podcast.app.playback.PlaybackController
+import com.podcast.app.playback.IPlaybackController
 import com.podcast.app.playback.PlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +18,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
-    private val playbackController: PlaybackController,
+    private val playbackController: IPlaybackController,
     private val podcastDao: PodcastDao
 ) : ViewModel() {
 

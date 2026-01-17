@@ -270,6 +270,14 @@ object TestTags {
     const val SEARCH_LOADING = "search_loading"
     const val SUBSCRIBE_BUTTON = "subscribe_button"
 
+    // RSS Feed Subscription
+    const val RSS_FEED_BUTTON = "rss_feed_button"
+    const val RSS_DIALOG = "rss_dialog"
+    const val RSS_DIALOG_TITLE = "rss_dialog_title"
+    const val RSS_URL_INPUT = "rss_url_input"
+    const val RSS_SUBSCRIBE_BUTTON = "rss_subscribe_button"
+    const val RSS_CANCEL_BUTTON = "rss_cancel_button"
+
     // Player Screen
     const val PLAYER_SCREEN = "player_screen"
     const val PLAY_PAUSE_BUTTON = "play_pause_button"

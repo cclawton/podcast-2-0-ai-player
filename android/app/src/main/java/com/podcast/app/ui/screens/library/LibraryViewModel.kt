@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.data.repository.PodcastRepository
-import com.podcast.app.playback.PlaybackController
+import com.podcast.app.playback.IPlaybackController
 import com.podcast.app.playback.PlaybackState
 import com.podcast.app.privacy.PrivacyManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val repository: PodcastRepository,
-    private val playbackController: PlaybackController,
+    private val playbackController: IPlaybackController,
     private val privacyManager: PrivacyManager
 ) : ViewModel() {
 

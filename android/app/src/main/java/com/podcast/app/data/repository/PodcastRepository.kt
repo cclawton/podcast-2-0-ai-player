@@ -7,7 +7,14 @@ import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.data.remote.api.PodcastIndexApi
 import com.podcast.app.data.remote.models.EpisodeItem
 import com.podcast.app.data.remote.models.PodcastFeed
+import com.podcast.app.data.rss.RssFeedParser
+import com.podcast.app.data.rss.RssParseException
+import com.podcast.app.di.RssHttpClient
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,7 +30,9 @@ import javax.inject.Singleton
 class PodcastRepository @Inject constructor(
     private val podcastDao: PodcastDao,
     private val episodeDao: EpisodeDao,
-    private val api: PodcastIndexApi
+    private val api: PodcastIndexApi,
+    private val rssFeedParser: RssFeedParser,
+    @RssHttpClient private val rssHttpClient: OkHttpClient
 ) {
     /**
      * Get subscribed podcasts from local database.
@@ -92,6 +101,91 @@ class PodcastRepository @Inject constructor(
      */
     suspend fun unsubscribeFromPodcast(podcastId: Long) {
         podcastDao.updateSubscription(podcastId, false)
+    }
+
+    /**
+     * Subscribe to a podcast from an RSS feed URL.
+     *
+     * This allows users to manually add podcasts that are not indexed
+     * by Podcast Index (e.g., private feeds, paywalled content).
+     *
+     * @param feedUrl The RSS feed URL
+     * @return Result containing the subscribed Podcast on success
+     */
+    suspend fun subscribeFromRssFeed(feedUrl: String): Result<Podcast> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Validate URL format
+                if (!isValidRssUrl(feedUrl)) {
+                    return@withContext Result.failure(
+                        IllegalArgumentException("Invalid RSS feed URL")
+                    )
+                }
+
+                // Check if already subscribed to this feed
+                val existingPodcast = podcastDao.getPodcastByFeedUrl(feedUrl)
+                if (existingPodcast != null) {
+                    if (existingPodcast.isSubscribed) {
+                        return@withContext Result.failure(
+                            IllegalStateException("Already subscribed to this feed")
+                        )
+                    }
+                    // Re-subscribe to existing podcast
+                    val resubscribed = existingPodcast.copy(isSubscribed = true)
+                    podcastDao.insertPodcast(resubscribed)
+                    return@withContext Result.success(resubscribed)
+                }
+
+                // Fetch and parse the RSS feed
+                val request = Request.Builder()
+                    .url(feedUrl)
+                    .header("User-Agent", "Podcast 2.0 AI Player/1.0")
+                    .build()
+
+                val response = rssHttpClient.newCall(request).execute()
+
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(
+                        Exception("Failed to fetch feed: HTTP ${response.code}")
+                    )
+                }
+
+                val responseBody = response.body
+                    ?: return@withContext Result.failure(Exception("Empty response from feed"))
+
+                val parsedFeed = responseBody.byteStream().use { inputStream ->
+                    rssFeedParser.parse(inputStream, feedUrl)
+                }
+
+                // Save podcast to database
+                val podcastId = podcastDao.insertPodcast(parsedFeed.podcast)
+                val savedPodcast = parsedFeed.podcast.copy(id = podcastId)
+
+                // Save episodes with correct podcast ID
+                val episodesWithPodcastId = parsedFeed.episodes.map { episode ->
+                    episode.copy(podcastId = podcastId)
+                }
+                episodeDao.insertEpisodes(episodesWithPodcastId)
+
+                Result.success(savedPodcast)
+            } catch (e: RssParseException) {
+                Result.failure(Exception("Invalid RSS feed: ${e.message}"))
+            } catch (e: Exception) {
+                Result.failure(Exception("Failed to subscribe: ${e.message}"))
+            }
+        }
+    }
+
+    /**
+     * Validate that a string is a valid RSS feed URL.
+     */
+    private fun isValidRssUrl(url: String): Boolean {
+        return try {
+            val uri = java.net.URI(url)
+            (uri.scheme == "http" || uri.scheme == "https") && uri.host != null
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /**

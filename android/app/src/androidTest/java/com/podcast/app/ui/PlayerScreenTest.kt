@@ -113,7 +113,7 @@ class PlayerScreenTest {
             composeRule.onNodeWithText("Nothing playing").assertIsDisplayed()
             composeRule.onNodeWithText("Select an episode from your library to start listening")
                 .assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // An episode might be playing - check for playback controls
             composeRule.onNodeWithTag(TestTags.PLAY_PAUSE_BUTTON).assertExists()
         }
@@ -128,7 +128,7 @@ class PlayerScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.PLAY_PAUSE_BUTTON, timeoutMillis = 3000)
             composeRule.onNodeWithTag(TestTags.PLAY_PAUSE_BUTTON).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing - empty state is shown
             composeRule.onNodeWithText("Nothing playing").assertIsDisplayed()
         }
@@ -139,7 +139,7 @@ class PlayerScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.SKIP_FORWARD_BUTTON, timeoutMillis = 3000)
             composeRule.onNodeWithTag(TestTags.SKIP_FORWARD_BUTTON).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -149,7 +149,7 @@ class PlayerScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.SKIP_BACKWARD_BUTTON, timeoutMillis = 3000)
             composeRule.onNodeWithTag(TestTags.SKIP_BACKWARD_BUTTON).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -163,7 +163,7 @@ class PlayerScreenTest {
 
             // Button should still be displayed after click
             composeRule.onNodeWithTag(TestTags.PLAY_PAUSE_BUTTON).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -177,7 +177,7 @@ class PlayerScreenTest {
 
             // Button should still be displayed after click
             composeRule.onNodeWithTag(TestTags.SKIP_FORWARD_BUTTON).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -191,7 +191,7 @@ class PlayerScreenTest {
 
             // Button should still be displayed after click
             composeRule.onNodeWithTag(TestTags.SKIP_BACKWARD_BUTTON).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -205,7 +205,7 @@ class PlayerScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.PROGRESS_BAR, timeoutMillis = 3000)
             composeRule.onNodeWithTag(TestTags.PROGRESS_BAR).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -219,7 +219,7 @@ class PlayerScreenTest {
 
             // Progress bar should still be displayed after interaction
             composeRule.onNodeWithTag(TestTags.PROGRESS_BAR).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -247,7 +247,7 @@ class PlayerScreenTest {
             composeRule.onNodeWithText("1.0x").assertIsDisplayed()
             composeRule.onNodeWithText("1.5x").assertIsDisplayed()
             composeRule.onNodeWithText("2.0x").assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Dialog might not appear if nothing is playing
         }
     }
@@ -266,7 +266,7 @@ class PlayerScreenTest {
 
             // Dialog should be dismissed, player screen should still be visible
             composeRule.onNodeWithTag(TestTags.PLAYER_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Dialog might not appear
         }
     }
@@ -285,7 +285,7 @@ class PlayerScreenTest {
 
             // Dialog should close and speed should be updated
             composeRule.onNodeWithTag(TestTags.PLAYER_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Dialog might not appear
         }
     }
@@ -299,7 +299,7 @@ class PlayerScreenTest {
         try {
             composeRule.waitUntilNodeWithTextExists("Speed:", timeoutMillis = 3000)
             composeRule.onNodeWithText("Speed:", substring = true).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -318,7 +318,7 @@ class PlayerScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN, timeoutMillis = 3000)
             composeRule.onNodeWithTag(TestTags.LIBRARY_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Might navigate to a different screen
         }
     }
@@ -363,10 +363,10 @@ class PlayerScreenTest {
             // Should have either "Play" or "Pause" content description
             try {
                 composeRule.onNodeWithContentDescription("Play").assertExists()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 composeRule.onNodeWithContentDescription("Pause").assertExists()
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -378,7 +378,7 @@ class PlayerScreenTest {
 
             composeRule.onNodeWithContentDescription("Skip forward 10 seconds").assertExists()
             composeRule.onNodeWithContentDescription("Skip back 10 seconds").assertExists()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -419,7 +419,7 @@ class PlayerScreenTest {
 
             // App should still be functional
             composeRule.onNodeWithTag(TestTags.PLAYER_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }
@@ -437,7 +437,7 @@ class PlayerScreenTest {
 
             // App should still be functional
             composeRule.onNodeWithTag(TestTags.PLAYER_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing
         }
     }

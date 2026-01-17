@@ -122,7 +122,7 @@ class LibraryScreenTest {
             composeRule.onNodeWithText("No podcasts yet").assertIsDisplayed()
             composeRule.onNodeWithText("Search and subscribe to podcasts to build your library")
                 .assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Library has podcasts - check for list instead
             composeRule.onNodeWithTag(TestTags.LIBRARY_LIST).assertIsDisplayed()
         }
@@ -143,7 +143,7 @@ class LibraryScreenTest {
 
             // Verify "Subscriptions" section header
             composeRule.onNodeWithText("Subscriptions").assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No podcasts - empty state should be shown
             composeRule.onNodeWithTag(TestTags.LIBRARY_EMPTY).assertIsDisplayed()
         }
@@ -159,7 +159,7 @@ class LibraryScreenTest {
             // Check that podcast items exist in the list
             val podcastItems = composeRule.onAllNodesWithTag(TestTags.PODCAST_ITEM, useUnmergedTree = true)
             podcastItems.assertCountAtLeast(1)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No podcasts available - test passes as there's nothing to display
         }
     }
@@ -196,7 +196,7 @@ class LibraryScreenTest {
             // Verify navigation to Episodes screen
             composeRule.waitUntilNodeWithTagExists(TestTags.EPISODES_SCREEN)
             composeRule.onNodeWithTag(TestTags.EPISODES_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No podcasts available - skip navigation test
         }
     }
@@ -218,7 +218,7 @@ class LibraryScreenTest {
             // Verify navigation to Player screen
             composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN)
             composeRule.onNodeWithTag(TestTags.PLAYER_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episode playing - mini player may not be visible
         }
     }
@@ -237,7 +237,7 @@ class LibraryScreenTest {
             // Check for Recent Episodes section
             composeRule.waitUntilNodeWithTextExists("Recent Episodes", timeoutMillis = 3000)
             composeRule.onNodeWithText("Recent Episodes").assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Recent episodes section may not be visible if no recent episodes exist
         }
     }

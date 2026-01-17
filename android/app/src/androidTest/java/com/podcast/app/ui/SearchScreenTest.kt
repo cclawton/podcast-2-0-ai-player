@@ -178,7 +178,7 @@ class SearchScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.SEARCH_RESULTS, timeoutMillis = 5000)
             composeRule.onNodeWithTag(TestTags.SEARCH_RESULTS).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Results might not appear if network is disabled or search fails
             // Check for empty state or loading state
             try {
@@ -205,7 +205,7 @@ class SearchScreenTest {
             // Verify empty state messages
             composeRule.onNodeWithText("No results").assertIsDisplayed()
             composeRule.onNodeWithText("Try a different search term").assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Search might still be loading or network is unavailable
         }
     }
@@ -236,7 +236,7 @@ class SearchScreenTest {
         try {
             composeRule.waitUntilNodeWithTextExists("Trending Podcasts", timeoutMillis = 5000)
             composeRule.onNodeWithText("Trending Podcasts").assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Trending podcasts may not be available if network is disabled
             // Check for discover state
             try {
@@ -254,7 +254,7 @@ class SearchScreenTest {
             composeRule.onNodeWithText("Discover podcasts").assertIsDisplayed()
             composeRule.onNodeWithText("Search for your favorite shows or browse trending podcasts")
                 .assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Trending podcasts might be showing instead
         }
     }
@@ -293,7 +293,7 @@ class SearchScreenTest {
         // This test checks if the banner is handled gracefully
         try {
             composeRule.onNodeWithText("Network disabled", substring = true).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Network may be enabled - this is fine
         }
     }

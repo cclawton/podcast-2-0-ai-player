@@ -7,7 +7,7 @@ import com.podcast.app.data.remote.api.PodcastIndexApi
 import com.podcast.app.mcp.models.MCPRequest
 import com.podcast.app.mcp.models.MCPResponse
 import com.podcast.app.mcp.models.MCPStatus
-import com.podcast.app.playback.PlaybackController
+import com.podcast.app.playback.IPlaybackController
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,7 +20,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class MCPCommandHandlerImpl @Inject constructor(
-    private val playbackController: PlaybackController,
+    private val playbackController: IPlaybackController,
     private val podcastDao: PodcastDao,
     private val episodeDao: EpisodeDao,
     private val playbackProgressDao: PlaybackProgressDao,

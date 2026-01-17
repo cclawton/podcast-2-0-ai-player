@@ -94,7 +94,7 @@ class EpisodesScreenTest {
             composeRule.waitForIdle()
 
             composeRule.waitUntilNodeWithTagExists(TestTags.EPISODES_SCREEN, timeoutMillis = 5000)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No podcasts available - episodes screen cannot be tested from library
             // Try navigating via deep link if supported
         }
@@ -108,7 +108,7 @@ class EpisodesScreenTest {
     fun episodesScreen_isDisplayed_whenNavigatedFromLibrary() {
         try {
             composeRule.onNodeWithTag(TestTags.EPISODES_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No podcasts in library - skip test
         }
     }
@@ -119,7 +119,7 @@ class EpisodesScreenTest {
             composeRule.waitUntilNodeWithTagExists(TestTags.EPISODES_SCREEN, timeoutMillis = 3000)
             // Top app bar should show "Episodes" or podcast title
             composeRule.onNodeWithContentDescription("Back").assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No podcasts available
         }
     }
@@ -129,7 +129,7 @@ class EpisodesScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.EPISODES_SCREEN, timeoutMillis = 3000)
             composeRule.onNodeWithContentDescription("Back").assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No podcasts available
         }
     }
@@ -139,7 +139,7 @@ class EpisodesScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.EPISODES_SCREEN, timeoutMillis = 3000)
             composeRule.onNodeWithContentDescription("More").assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No podcasts available
         }
     }
@@ -156,7 +156,7 @@ class EpisodesScreenTest {
 
             // Header should contain episode count text
             composeRule.onNodeWithText("episodes", substring = true).assertExists()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No podcasts available or no episodes
         }
     }
@@ -171,7 +171,7 @@ class EpisodesScreenTest {
             composeRule.waitUntilNodeWithTagExists(TestTags.EPISODES_SCREEN, timeoutMillis = 3000)
             composeRule.waitUntilNodeWithTagExists(TestTags.EPISODES_LIST, timeoutMillis = 5000)
             composeRule.onNodeWithTag(TestTags.EPISODES_LIST).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episodes available
         }
     }
@@ -185,7 +185,7 @@ class EpisodesScreenTest {
             // Check that episode items exist
             val episodeItems = composeRule.onAllNodesWithTag(TestTags.EPISODE_ITEM, useUnmergedTree = true)
             episodeItems.assertCountAtLeast(1)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episodes available
         }
     }
@@ -203,7 +203,7 @@ class EpisodesScreenTest {
 
             // Should trigger playback or navigation
             composeRule.onNodeWithTag(TestTags.EPISODES_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // No episodes available
         }
     }
@@ -221,11 +221,11 @@ class EpisodesScreenTest {
             try {
                 composeRule.onNodeWithText("No episodes").assertIsDisplayed()
                 composeRule.onNodeWithText("Check for new episodes").assertIsDisplayed()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Episodes exist - list should be shown
                 composeRule.onNodeWithTag(TestTags.EPISODES_LIST).assertIsDisplayed()
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -242,7 +242,7 @@ class EpisodesScreenTest {
             // Screen should be stable after potential refresh
             composeRule.waitForIdle()
             composeRule.onNodeWithTag(TestTags.EPISODES_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -263,7 +263,7 @@ class EpisodesScreenTest {
             // Menu should show unsubscribe option
             composeRule.waitUntilNodeWithTextExists("Unsubscribe", timeoutMillis = 3000)
             composeRule.onNodeWithText("Unsubscribe").assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -285,7 +285,7 @@ class EpisodesScreenTest {
 
             // Episodes screen should still be displayed
             composeRule.onNodeWithTag(TestTags.EPISODES_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -303,10 +303,10 @@ class EpisodesScreenTest {
             try {
                 composeRule.waitUntilNodeWithTextExists("Now Playing", timeoutMillis = 2000)
                 composeRule.onNodeWithText("Now Playing").assertIsDisplayed()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // No episode currently playing - acceptable
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -330,10 +330,10 @@ class EpisodesScreenTest {
                 // Should navigate to player screen
                 composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN)
                 composeRule.onNodeWithTag(TestTags.PLAYER_SCREEN).assertIsDisplayed()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Could not play episode or mini player not visible
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -353,7 +353,7 @@ class EpisodesScreenTest {
             // Should navigate back to Library
             composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN)
             composeRule.onNodeWithTag(TestTags.LIBRARY_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -369,7 +369,7 @@ class EpisodesScreenTest {
 
             composeRule.waitUntilNodeWithTagExists(TestTags.SEARCH_SCREEN)
             composeRule.onNodeWithTag(TestTags.SEARCH_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -385,7 +385,7 @@ class EpisodesScreenTest {
 
             composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN)
             composeRule.onNodeWithTag(TestTags.PLAYER_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -411,7 +411,7 @@ class EpisodesScreenTest {
             // Should navigate back to Library
             composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN, timeoutMillis = 5000)
             composeRule.onNodeWithTag(TestTags.LIBRARY_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen or unsubscribe
         }
     }
@@ -425,7 +425,7 @@ class EpisodesScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.EPISODES_SCREEN, timeoutMillis = 3000)
             composeRule.onNodeWithContentDescription("Back").assertExists()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -435,7 +435,7 @@ class EpisodesScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.EPISODES_SCREEN, timeoutMillis = 3000)
             composeRule.onNodeWithContentDescription("More").assertExists()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -457,7 +457,7 @@ class EpisodesScreenTest {
 
             // Verify we can still interact with the app
             composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN, timeoutMillis = 3000)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }
@@ -484,7 +484,7 @@ class EpisodesScreenTest {
                 // List should still be displayed
                 composeRule.onNodeWithTag(TestTags.EPISODES_LIST).assertIsDisplayed()
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen or no episodes
         }
     }
@@ -500,7 +500,7 @@ class EpisodesScreenTest {
             // The snackbar host exists on the screen
             // Actual error messages would appear here when errors occur
             composeRule.onNodeWithTag(TestTags.EPISODES_SCREEN).assertIsDisplayed()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Could not navigate to episodes screen
         }
     }

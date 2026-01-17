@@ -16,7 +16,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.RssFeed
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -43,6 +47,7 @@ import com.podcast.app.ui.components.EmptyState
 import com.podcast.app.ui.components.LoadingState
 import com.podcast.app.ui.components.NetworkDisabledBanner
 import com.podcast.app.ui.components.PodcastCard
+import com.podcast.app.util.TestTags
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +61,9 @@ fun SearchScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val canSearch by viewModel.canSearch.collectAsState()
+    val showRssDialog by viewModel.showRssDialog.collectAsState()
+    val rssUrl by viewModel.rssUrl.collectAsState()
+    val rssSubscriptionSuccess by viewModel.rssSubscriptionSuccess.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -66,6 +74,25 @@ fun SearchScreen(
         }
     }
 
+    // Navigate to episodes screen after successful RSS subscription
+    LaunchedEffect(rssSubscriptionSuccess) {
+        rssSubscriptionSuccess?.let { podcast ->
+            navController.navigate(Screen.Episodes.createRoute(podcast.id))
+            viewModel.clearRssSubscriptionSuccess()
+        }
+    }
+
+    // RSS Feed Dialog
+    if (showRssDialog) {
+        RssFeedDialog(
+            rssUrl = rssUrl,
+            onUrlChange = viewModel::updateRssUrl,
+            onDismiss = viewModel::hideRssDialog,
+            onConfirm = viewModel::subscribeFromRss,
+            isLoading = isLoading
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -73,6 +100,17 @@ fun SearchScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = { viewModel.showRssDialog() },
+                        modifier = Modifier.testTag(TestTags.RSS_FEED_BUTTON)
+                    ) {
+                        Icon(
+                            Icons.Default.RssFeed,
+                            contentDescription = "Add RSS feed"
+                        )
                     }
                 }
             )
@@ -177,4 +215,69 @@ fun SearchScreen(
             }
         }
     }
+}
+
+/**
+ * Dialog for adding a podcast via RSS feed URL.
+ */
+@Composable
+private fun RssFeedDialog(
+    rssUrl: String,
+    onUrlChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    isLoading: Boolean
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        title = {
+            Text(
+                "Add RSS Feed",
+                modifier = Modifier.testTag(TestTags.RSS_DIALOG_TITLE)
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    "Enter the RSS feed URL of the podcast you want to add.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                OutlinedTextField(
+                    value = rssUrl,
+                    onValueChange = onUrlChange,
+                    placeholder = { Text("https://example.com/feed.xml") },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { onConfirm() }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.RSS_URL_INPUT)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = !isLoading && rssUrl.isNotBlank(),
+                modifier = Modifier.testTag(TestTags.RSS_SUBSCRIBE_BUTTON)
+            ) {
+                Text(if (isLoading) "Adding..." else "Subscribe")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading,
+                modifier = Modifier.testTag(TestTags.RSS_CANCEL_BUTTON)
+            ) {
+                Text("Cancel")
+            }
+        },
+        modifier = Modifier.testTag(TestTags.RSS_DIALOG)
+    )
 }

@@ -12,7 +12,7 @@ import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.data.local.entities.PlaybackProgress
 import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.data.repository.PodcastRepository
-import com.podcast.app.playback.PlaybackController
+import com.podcast.app.playback.IPlaybackController
 import com.podcast.app.playback.PlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,7 +31,7 @@ class EpisodesViewModel @Inject constructor(
     private val podcastDao: PodcastDao,
     private val downloadDao: DownloadDao,
     private val progressDao: PlaybackProgressDao,
-    private val playbackController: PlaybackController
+    private val playbackController: IPlaybackController
 ) : ViewModel() {
 
     private val podcastId: Long = savedStateHandle.get<String>("podcastId")?.toLongOrNull() ?: 0L

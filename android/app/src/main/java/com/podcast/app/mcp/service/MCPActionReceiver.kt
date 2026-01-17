@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.podcast.app.mcp.bridge.InputValidator
 import com.podcast.app.mcp.bridge.MCPActions
-import com.podcast.app.playback.PlaybackController
+import com.podcast.app.playback.IPlaybackController
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +33,7 @@ import javax.inject.Inject
 class MCPActionReceiver : BroadcastReceiver() {
 
     @Inject
-    lateinit var playbackController: PlaybackController
+    lateinit var playbackController: IPlaybackController
 
     @Inject
     lateinit var inputValidator: InputValidator
