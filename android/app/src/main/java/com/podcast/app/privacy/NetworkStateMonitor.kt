@@ -5,7 +5,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -13,9 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-import javax.inject.Singleton
-
 /**
  * Monitors network connectivity without requiring additional permissions.
  *
@@ -29,23 +25,41 @@ import javax.inject.Singleton
  * - Does NOT require ACCESS_NETWORK_STATE permission (optional on API 21+)
  * - Gracefully handles permission denial
  * - Provides fallback mechanisms
+ *
+ * Note: Provided via PrivacyModule (not @Inject) so it can be replaced in tests
+ * with a fake that doesn't register network callbacks.
  */
-@Singleton
-class NetworkStateMonitor @Inject constructor(
-    @ApplicationContext private val context: Context
+class NetworkStateMonitor(
+    private val context: Context,
+    /**
+     * If true, skip registering network callbacks. Used by tests to avoid
+     * TooManyRequestsException when many test classes create new instances.
+     */
+    private val skipCallbackRegistration: Boolean = false,
+    /**
+     * Initial network state for tests. If null, uses real network state.
+     */
+    initialState: NetworkState? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val connectivityManager: ConnectivityManager? by lazy {
-        try {
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-        } catch (e: SecurityException) {
-            // Permission denied - operate in offline mode
+        if (skipCallbackRegistration) {
+            // Skip connectivity manager for tests
             null
+        } else {
+            try {
+                context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            } catch (e: SecurityException) {
+                // Permission denied - operate in offline mode
+                null
+            }
         }
     }
 
-    private val _networkState = MutableStateFlow(NetworkState())
+    private val _networkState = MutableStateFlow(
+        initialState ?: NetworkState()
+    )
 
     // Store the main callback for proper cleanup
     private var mainNetworkCallback: ConnectivityManager.NetworkCallback? = null
@@ -81,10 +95,12 @@ class NetworkStateMonitor @Inject constructor(
     }
 
     init {
-        // Initial state check
-        updateNetworkState()
-        // Register callback for ongoing monitoring
-        registerNetworkCallback()
+        if (!skipCallbackRegistration) {
+            // Initial state check
+            updateNetworkState()
+            // Register callback for ongoing monitoring
+            registerNetworkCallback()
+        }
     }
 
     /**
@@ -109,6 +125,11 @@ class NetworkStateMonitor @Inject constructor(
      * Use sparingly - prefer the flow-based API.
      */
     fun checkNetworkNow(): Boolean {
+        // In test mode, return the current state value
+        if (skipCallbackRegistration) {
+            return _networkState.value.isAvailable
+        }
+
         val cm = connectivityManager ?: return false
 
         return try {
@@ -126,6 +147,11 @@ class NetworkStateMonitor @Inject constructor(
      * Check if current connection is unmetered.
      */
     fun checkUnmeteredNow(): Boolean {
+        // In test mode, return the current state value
+        if (skipCallbackRegistration) {
+            return _networkState.value.isUnmetered
+        }
+
         val cm = connectivityManager ?: return false
 
         return try {
@@ -142,6 +168,11 @@ class NetworkStateMonitor @Inject constructor(
      * Get current network type.
      */
     fun getNetworkType(): NetworkType {
+        // In test mode, return the current state value
+        if (skipCallbackRegistration) {
+            return _networkState.value.type
+        }
+
         val cm = connectivityManager ?: return NetworkType.NONE
 
         return try {
