@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -95,7 +97,7 @@ fun LibraryScreen(
                     )
                 } else {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Subscribed podcasts grid
+                        // Subscribed podcasts grid - takes roughly half the screen
                         Text(
                             text = "Subscriptions",
                             style = MaterialTheme.typography.titleMedium,
@@ -103,11 +105,13 @@ fun LibraryScreen(
                         )
 
                         LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 150.dp),
+                            columns = GridCells.Adaptive(minSize = 100.dp),
                             contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.weight(1f).testTag("library_list")
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .weight(0.55f)
+                                .testTag("library_list")
                         ) {
                             items(podcasts, key = { it.id }) { podcast ->
                                 PodcastCard(
@@ -120,7 +124,7 @@ fun LibraryScreen(
                             }
                         }
 
-                        // Recent episodes
+                        // Recent episodes - compact horizontal list
                         if (recentEpisodes.isNotEmpty()) {
                             Text(
                                 text = "Recent Episodes",
@@ -130,14 +134,15 @@ fun LibraryScreen(
 
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(0.45f)
                             ) {
                                 items(recentEpisodes.take(10), key = { it.id }) { episode ->
-                                    Box(modifier = Modifier.fillMaxWidth(0.85f)) {
+                                    Box(modifier = Modifier.width(280.dp)) {
                                         EpisodeItem(
                                             episode = episode,
                                             isDownloaded = downloads[episode.id] != null,
-                                            fallbackImageUrl = podcastImages[episode.podcastId],
+                                            fallbackImageUrl = podcastImages[episode.podcastId]?.takeIf { it.isNotBlank() },
                                             onPlayClick = { viewModel.playEpisode(episode.id) },
                                             onDownloadClick = { /* TODO: Download */ },
                                             onClick = { viewModel.playEpisode(episode.id) }

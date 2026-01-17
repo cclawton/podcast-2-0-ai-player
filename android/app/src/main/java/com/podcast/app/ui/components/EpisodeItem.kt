@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,7 +46,8 @@ fun EpisodeItem(
     modifier: Modifier = Modifier
 ) {
     // Use episode image, or fall back to podcast/feed image
-    val displayImageUrl = episode.imageUrl ?: fallbackImageUrl
+    // Handle both null and empty string cases
+    val displayImageUrl = episode.imageUrl?.takeIf { it.isNotBlank() } ?: fallbackImageUrl
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -107,9 +108,9 @@ fun EpisodeItem(
 
                 IconButton(onClick = onDownloadClick) {
                     Icon(
-                        imageVector = if (isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
-                        contentDescription = if (isDownloaded) "Downloaded" else "Download",
-                        tint = if (isDownloaded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        imageVector = if (isDownloaded) Icons.Default.Delete else Icons.Default.Download,
+                        contentDescription = if (isDownloaded) "Delete download" else "Download",
+                        tint = if (isDownloaded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

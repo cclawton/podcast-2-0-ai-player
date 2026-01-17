@@ -140,7 +140,7 @@ fun EpisodesScreen(
                     // Podcast header
                     item {
                         PodcastHeader(
-                            imageUrl = podcast?.imageUrl,
+                            imageUrl = podcast?.imageUrl?.takeIf { it.isNotBlank() },
                             title = podcast?.title ?: "",
                             author = podcast?.author,
                             description = podcast?.description,
@@ -162,7 +162,7 @@ fun EpisodesScreen(
                             episode = episode,
                             progress = progressPercent,
                             isDownloaded = download?.status == DownloadStatus.COMPLETED,
-                            fallbackImageUrl = podcast?.imageUrl,
+                            fallbackImageUrl = podcast?.imageUrl?.takeIf { it.isNotBlank() },
                             onPlayClick = { viewModel.playEpisode(episode.id) },
                             onDownloadClick = { viewModel.downloadEpisode(episode) },
                             onClick = { viewModel.playEpisode(episode.id) },
