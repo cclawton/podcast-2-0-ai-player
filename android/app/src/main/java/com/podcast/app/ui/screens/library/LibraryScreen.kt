@@ -48,6 +48,8 @@ fun LibraryScreen(
     val currentEpisode by viewModel.currentEpisode.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
     val canUseNetwork by viewModel.canUseNetwork.collectAsState()
+    val downloads by viewModel.downloads.collectAsState()
+    val podcastImages by viewModel.podcastImages.collectAsState()
 
     Scaffold(
         topBar = {
@@ -134,6 +136,8 @@ fun LibraryScreen(
                                     Box(modifier = Modifier.fillMaxWidth(0.85f)) {
                                         EpisodeItem(
                                             episode = episode,
+                                            isDownloaded = downloads[episode.id] != null,
+                                            fallbackImageUrl = podcastImages[episode.podcastId],
                                             onPlayClick = { viewModel.playEpisode(episode.id) },
                                             onDownloadClick = { /* TODO: Download */ },
                                             onClick = { viewModel.playEpisode(episode.id) }

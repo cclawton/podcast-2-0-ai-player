@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.podcast.app.data.local.entities.Episode
+import com.podcast.app.util.TextUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -38,11 +39,14 @@ fun EpisodeItem(
     episode: Episode,
     progress: Float = 0f,
     isDownloaded: Boolean = false,
+    fallbackImageUrl: String? = null,
     onPlayClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Use episode image, or fall back to podcast/feed image
+    val displayImageUrl = episode.imageUrl ?: fallbackImageUrl
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -55,7 +59,7 @@ fun EpisodeItem(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                episode.imageUrl?.let { imageUrl ->
+                displayImageUrl?.let { imageUrl ->
                     AsyncImage(
                         model = imageUrl,
                         contentDescription = null,
@@ -119,7 +123,7 @@ fun EpisodeItem(
                 )
             }
 
-            episode.description?.let { desc ->
+            TextUtils.stripHtml(episode.description)?.let { desc ->
                 Text(
                     text = desc,
                     style = MaterialTheme.typography.bodySmall,

@@ -2,6 +2,8 @@ package com.podcast.app.ui.screens.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.podcast.app.data.local.entities.Download
+import com.podcast.app.data.local.entities.DownloadStatus
 import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.data.repository.PodcastRepository
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -22,7 +25,8 @@ import javax.inject.Inject
 class LibraryViewModel @Inject constructor(
     private val repository: PodcastRepository,
     private val playbackController: IPlaybackController,
-    private val privacyManager: PrivacyManager
+    private val privacyManager: PrivacyManager,
+    private val downloadDao: com.podcast.app.data.local.dao.DownloadDao
 ) : ViewModel() {
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -33,6 +37,15 @@ class LibraryViewModel @Inject constructor(
 
     val recentEpisodes: StateFlow<List<Episode>> = repository.getRecentEpisodes(20)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val downloads: StateFlow<Map<Long, Download>> = downloadDao.getCompletedDownloads()
+        .map { list -> list.associateBy { it.episodeId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    // Map of podcast ID to image URL for fallback images
+    val podcastImages: StateFlow<Map<Long, String?>> = subscribedPodcasts
+        .map { podcasts -> podcasts.associate { it.id to it.imageUrl } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val currentEpisode: StateFlow<Episode?> = playbackController.currentEpisode
 

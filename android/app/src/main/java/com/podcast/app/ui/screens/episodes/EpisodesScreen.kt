@@ -50,6 +50,7 @@ import com.podcast.app.ui.Screen
 import com.podcast.app.ui.components.EmptyState
 import com.podcast.app.ui.components.EpisodeItem
 import com.podcast.app.ui.components.MiniPlayer
+import com.podcast.app.util.TextUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,6 +162,7 @@ fun EpisodesScreen(
                             episode = episode,
                             progress = progressPercent,
                             isDownloaded = download?.status == DownloadStatus.COMPLETED,
+                            fallbackImageUrl = podcast?.imageUrl,
                             onPlayClick = { viewModel.playEpisode(episode.id) },
                             onDownloadClick = { viewModel.downloadEpisode(episode) },
                             onClick = { viewModel.playEpisode(episode.id) },
@@ -220,10 +222,10 @@ private fun PodcastHeader(
         }
     }
 
-    description?.let {
+    TextUtils.stripHtml(description)?.let { cleanDescription ->
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = it,
+            text = cleanDescription,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 3,
