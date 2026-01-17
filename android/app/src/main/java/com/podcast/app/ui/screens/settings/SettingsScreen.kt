@@ -13,6 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +37,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.podcast.app.privacy.OperationalMode
 import com.podcast.app.privacy.PrivacyPreset
+import com.podcast.app.ui.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -188,6 +191,17 @@ fun SettingsScreen(
                 title = "Foreground Service",
                 granted = permissionState.hasForegroundService,
                 description = "Background playback"
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Troubleshooting
+            SectionHeader("Troubleshooting")
+            NavigationItem(
+                title = "Diagnostics",
+                description = "View logs, test API, troubleshoot issues",
+                icon = Icons.Filled.BugReport,
+                onClick = { navController.navigate(Screen.Diagnostics.route) }
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -347,6 +361,58 @@ private fun PermissionItem(
             style = MaterialTheme.typography.labelMedium,
             color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         )
+    }
+}
+
+@Composable
+private fun NavigationItem(
+    title: String,
+    description: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Column(modifier = Modifier.padding(start = 16.dp)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "Navigate",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

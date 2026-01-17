@@ -6,6 +6,7 @@ import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.data.repository.PodcastRepository
 import com.podcast.app.privacy.NetworkFeature
 import com.podcast.app.privacy.PrivacyManager
+import com.podcast.app.util.DiagnosticLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,6 +23,10 @@ class SearchViewModel @Inject constructor(
     private val repository: PodcastRepository,
     private val privacyManager: PrivacyManager
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "SearchViewModel"
+    }
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
@@ -73,20 +78,31 @@ class SearchViewModel @Inject constructor(
     }
 
     private suspend fun performSearch(searchQuery: String) {
-        if (!privacyManager.isFeatureAllowed(NetworkFeature.PODCAST_SEARCH)) {
-            _error.value = privacyManager.getOfflineFallbackMessage(NetworkFeature.PODCAST_SEARCH)
+        DiagnosticLogger.i(TAG, "performSearch: '$searchQuery'")
+
+        val featureAllowed = privacyManager.isFeatureAllowed(NetworkFeature.PODCAST_SEARCH)
+        DiagnosticLogger.d(TAG, "Network feature PODCAST_SEARCH allowed: $featureAllowed")
+
+        if (!featureAllowed) {
+            val msg = privacyManager.getOfflineFallbackMessage(NetworkFeature.PODCAST_SEARCH)
+            DiagnosticLogger.w(TAG, "Search blocked by privacy settings: $msg")
+            _error.value = msg
             return
         }
 
         _isLoading.value = true
         _error.value = null
 
+        DiagnosticLogger.d(TAG, "Calling repository.searchPodcasts...")
         repository.searchPodcasts(searchQuery)
             .onSuccess { podcasts ->
+                DiagnosticLogger.i(TAG, "Search success: ${podcasts.size} results")
                 _searchResults.value = podcasts
             }
             .onFailure { exception ->
-                _error.value = exception.message ?: "Search failed"
+                val errorMsg = exception.message ?: "Search failed"
+                DiagnosticLogger.e(TAG, "Search failure: $errorMsg")
+                _error.value = errorMsg
             }
 
         _isLoading.value = false
@@ -94,13 +110,24 @@ class SearchViewModel @Inject constructor(
 
     private fun loadTrending() {
         viewModelScope.launch {
-            if (!privacyManager.isFeatureAllowed(NetworkFeature.PODCAST_SEARCH)) {
+            DiagnosticLogger.d(TAG, "loadTrending: checking privacy settings...")
+
+            val featureAllowed = privacyManager.isFeatureAllowed(NetworkFeature.PODCAST_SEARCH)
+            DiagnosticLogger.d(TAG, "Network feature PODCAST_SEARCH allowed: $featureAllowed")
+
+            if (!featureAllowed) {
+                DiagnosticLogger.w(TAG, "Trending blocked by privacy settings")
                 return@launch
             }
 
+            DiagnosticLogger.d(TAG, "Calling repository.getTrendingPodcasts...")
             repository.getTrendingPodcasts(20)
                 .onSuccess { podcasts ->
+                    DiagnosticLogger.i(TAG, "Trending success: ${podcasts.size} results")
                     _trendingPodcasts.value = podcasts
+                }
+                .onFailure { exception ->
+                    DiagnosticLogger.e(TAG, "Trending failure: ${exception.message}")
                 }
         }
     }

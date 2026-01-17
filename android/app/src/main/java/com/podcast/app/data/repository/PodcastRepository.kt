@@ -10,6 +10,7 @@ import com.podcast.app.data.remote.models.PodcastFeed
 import com.podcast.app.data.rss.RssFeedParser
 import com.podcast.app.data.rss.RssParseException
 import com.podcast.app.di.RssHttpClient
+import com.podcast.app.util.DiagnosticLogger
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -17,8 +18,11 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import retrofit2.HttpException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.net.ssl.SSLException
 
 /**
  * Repository for podcast data, combining local database and remote API.
@@ -50,21 +54,40 @@ class PodcastRepository @Inject constructor(
      * Search for podcasts via API.
      */
     suspend fun searchPodcasts(query: String, limit: Int = 20): Result<List<Podcast>> {
+        DiagnosticLogger.i(TAG, "searchPodcasts: query='$query', limit=$limit")
+
         return try {
+            DiagnosticLogger.d(TAG, "Calling API searchByTerm...")
             val response = api.searchByTerm(query, limit)
             val podcasts = response.feeds.map { it.toPodcast() }
+            DiagnosticLogger.i(TAG, "Search returned ${podcasts.size} results")
+
             // Cache results locally
             podcastDao.insertPodcasts(podcasts)
             Result.success(podcasts)
         } catch (e: HttpException) {
-            Log.e(TAG, "Search failed with HTTP ${e.code()}: ${e.message()}")
-            val errorMessage = when (e.code()) {
-                401, 403 -> "API authentication failed - check credentials"
-                else -> "Search failed (HTTP ${e.code()})"
+            val code = e.code()
+            val msg = e.message()
+            DiagnosticLogger.e(TAG, "Search HTTP error: $code - $msg")
+
+            val errorMessage = when (code) {
+                401 -> "API authentication failed (401) - credentials may be invalid"
+                403 -> "API access forbidden (403) - check API key permissions"
+                429 -> "Rate limited (429) - try again later"
+                else -> "Search failed (HTTP $code)"
             }
             Result.failure(Exception(errorMessage))
+        } catch (e: UnknownHostException) {
+            DiagnosticLogger.e(TAG, "Search DNS failed: ${e.message}")
+            Result.failure(Exception("Network unavailable - cannot resolve API host"))
+        } catch (e: SocketTimeoutException) {
+            DiagnosticLogger.e(TAG, "Search timeout: ${e.message}")
+            Result.failure(Exception("Connection timeout - check network"))
+        } catch (e: SSLException) {
+            DiagnosticLogger.e(TAG, "Search SSL error: ${e.message}")
+            Result.failure(Exception("SSL/TLS error - secure connection failed"))
         } catch (e: Exception) {
-            Log.e(TAG, "Search failed: ${e.message}", e)
+            DiagnosticLogger.e(TAG, "Search failed: ${e.javaClass.simpleName} - ${e.message}")
             Result.failure(Exception("Search failed: ${e.message}"))
         }
     }
@@ -236,19 +259,37 @@ class PodcastRepository @Inject constructor(
      * Get trending podcasts.
      */
     suspend fun getTrendingPodcasts(limit: Int = 20): Result<List<Podcast>> {
+        DiagnosticLogger.i(TAG, "getTrendingPodcasts: limit=$limit")
+
         return try {
+            DiagnosticLogger.d(TAG, "Calling API getTrendingPodcasts...")
             val response = api.getTrendingPodcasts(limit)
             val podcasts = response.feeds.map { it.toPodcast() }
+            DiagnosticLogger.i(TAG, "Trending returned ${podcasts.size} results")
             Result.success(podcasts)
         } catch (e: HttpException) {
-            Log.e(TAG, "Trending failed with HTTP ${e.code()}: ${e.message()}")
-            val errorMessage = when (e.code()) {
-                401, 403 -> "API authentication failed - check credentials"
-                else -> "Failed to load trending (HTTP ${e.code()})"
+            val code = e.code()
+            val msg = e.message()
+            DiagnosticLogger.e(TAG, "Trending HTTP error: $code - $msg")
+
+            val errorMessage = when (code) {
+                401 -> "API authentication failed (401) - credentials may be invalid"
+                403 -> "API access forbidden (403) - check API key permissions"
+                429 -> "Rate limited (429) - try again later"
+                else -> "Failed to load trending (HTTP $code)"
             }
             Result.failure(Exception(errorMessage))
+        } catch (e: UnknownHostException) {
+            DiagnosticLogger.e(TAG, "Trending DNS failed: ${e.message}")
+            Result.failure(Exception("Network unavailable - cannot resolve API host"))
+        } catch (e: SocketTimeoutException) {
+            DiagnosticLogger.e(TAG, "Trending timeout: ${e.message}")
+            Result.failure(Exception("Connection timeout - check network"))
+        } catch (e: SSLException) {
+            DiagnosticLogger.e(TAG, "Trending SSL error: ${e.message}")
+            Result.failure(Exception("SSL/TLS error - secure connection failed"))
         } catch (e: Exception) {
-            Log.e(TAG, "Trending failed: ${e.message}", e)
+            DiagnosticLogger.e(TAG, "Trending failed: ${e.javaClass.simpleName} - ${e.message}")
             Result.failure(Exception("Failed to load trending: ${e.message}"))
         }
     }
