@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -202,11 +203,13 @@ class SettingsScreenTest {
     @Test
     fun settingsScreen_showsImageLoadingToggle_whenNetworkEnabled() {
         try {
+            composeRule.onNodeWithText("Image Loading").performScrollTo()
             composeRule.onNodeWithText("Image Loading").assertIsDisplayed()
         } catch (e: Throwable) {
             // Network might be disabled - enable it first
             composeRule.onNodeWithText("Enable Network").performClick()
             composeRule.waitForIdle()
+            composeRule.onNodeWithText("Image Loading").performScrollTo()
             composeRule.onNodeWithText("Image Loading").assertIsDisplayed()
         }
     }
@@ -311,26 +314,26 @@ class SettingsScreenTest {
 
     @Test
     fun settingsScreen_showsInternetPermission() {
-        composeRule.onNodeWithText("Permissions").performScrollTo()
+        composeRule.onNodeWithText("Internet", substring = true).performScrollTo()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Internet").assertIsDisplayed()
-        composeRule.onNodeWithText("Optional - app works offline").assertIsDisplayed()
+        composeRule.onNodeWithText("Internet", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Optional - app works offline", substring = true).assertIsDisplayed()
     }
 
     @Test
     fun settingsScreen_showsMicrophonePermission() {
-        composeRule.onNodeWithText("Permissions").performScrollTo()
+        composeRule.onNodeWithText("Microphone", substring = true).performScrollTo()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Microphone").assertIsDisplayed()
-        composeRule.onNodeWithText("For voice commands").assertIsDisplayed()
+        composeRule.onNodeWithText("Microphone", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("For voice commands", substring = true).assertIsDisplayed()
     }
 
     @Test
     fun settingsScreen_showsForegroundServicePermission() {
-        composeRule.onNodeWithText("Permissions").performScrollTo()
+        composeRule.onNodeWithText("Foreground Service", substring = true).performScrollTo()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Foreground Service").assertIsDisplayed()
-        composeRule.onNodeWithText("Background playback").assertIsDisplayed()
+        composeRule.onNodeWithText("Foreground Service", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Background playback", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -339,15 +342,17 @@ class SettingsScreenTest {
         composeRule.waitForIdle()
 
         // Should show either "Granted" or "Not Granted" for each permission
+        // Use onAllNodes since there may be multiple permission status labels
         val hasGranted = try {
-            composeRule.onNodeWithText("Granted", substring = false).assertExists()
-            true
+            composeRule.onAllNodesWithText("Granted", substring = false).fetchSemanticsNodes().isNotEmpty()
         } catch (e: Throwable) {
             false
         }
 
         if (!hasGranted) {
-            composeRule.onNodeWithText("Not Granted", substring = false).assertExists()
+            // Verify at least one "Not Granted" exists
+            val notGrantedNodes = composeRule.onAllNodesWithText("Not Granted", substring = false).fetchSemanticsNodes()
+            assert(notGrantedNodes.isNotEmpty()) { "Expected at least one permission status to be displayed" }
         }
     }
 

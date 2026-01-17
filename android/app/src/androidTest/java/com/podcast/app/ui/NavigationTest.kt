@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -239,10 +241,10 @@ class NavigationTest {
         // Wait for Library screen
         composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN)
 
-        // Click on a podcast item (assuming one exists)
-        val podcastItem = composeRule.onNodeWithTag(TestTags.PODCAST_ITEM, useUnmergedTree = true)
-        if (podcastItem.fetchSemanticsNode().let { true }) {
-            podcastItem.performClick()
+        // Click on the first podcast item (there may be multiple)
+        val podcastItems = composeRule.onAllNodesWithTag(TestTags.PODCAST_ITEM, useUnmergedTree = true)
+        if (podcastItems.fetchSemanticsNodes().isNotEmpty()) {
+            podcastItems.onFirst().performClick()
             composeRule.waitForIdle()
 
             // Verify Episodes screen is displayed
@@ -310,9 +312,10 @@ class NavigationTest {
         composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV)
 
         // Verify each nav item has content description for accessibility
-        composeRule.onNodeWithContentDescription("Library", substring = true).assertExists()
-        composeRule.onNodeWithContentDescription("Search", substring = true).assertExists()
-        composeRule.onNodeWithContentDescription("Player", substring = true).assertExists()
-        composeRule.onNodeWithContentDescription("Settings", substring = true).assertExists()
+        // Use useUnmergedTree = true because content descriptions may be in unmerged nodes
+        composeRule.onNodeWithContentDescription("Library", substring = true, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription("Search", substring = true, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription("Player", substring = true, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription("Settings", substring = true, useUnmergedTree = true).assertExists()
     }
 }
