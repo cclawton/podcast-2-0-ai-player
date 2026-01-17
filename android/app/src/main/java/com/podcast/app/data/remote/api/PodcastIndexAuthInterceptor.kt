@@ -6,6 +6,21 @@ import java.security.MessageDigest
 import javax.inject.Inject
 
 /**
+ * Exception thrown when Podcast Index API authentication fails.
+ */
+class PodcastIndexAuthException(message: String) : Exception(message) {
+    companion object {
+        fun missingCredentials() = PodcastIndexAuthException(
+            "Podcast Index API credentials not configured. Please add your API key and secret."
+        )
+
+        fun invalidCredentials() = PodcastIndexAuthException(
+            "Podcast Index API authentication failed. Please check your API key and secret."
+        )
+    }
+}
+
+/**
  * OkHttp interceptor for Podcast Index API authentication.
  *
  * Authentication requires:
@@ -21,9 +36,9 @@ class PodcastIndexAuthInterceptor @Inject constructor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val credentials = credentialsProvider.getCredentials()
 
-        // Skip auth if credentials not configured
-        if (credentials == null) {
-            return chain.proceed(chain.request())
+        // Throw specific exception if credentials not configured
+        if (credentials == null || credentials.apiKey.isBlank() || credentials.apiSecret.isBlank()) {
+            throw PodcastIndexAuthException.missingCredentials()
         }
 
         val timestamp = (System.currentTimeMillis() / 1000).toString()
@@ -36,7 +51,15 @@ class PodcastIndexAuthInterceptor @Inject constructor(
             .addHeader("User-Agent", "PodcastApp/1.0")
             .build()
 
-        return chain.proceed(authenticatedRequest)
+        val response = chain.proceed(authenticatedRequest)
+
+        // Check for auth failures (401 Unauthorized or 403 Forbidden)
+        if (response.code == 401 || response.code == 403) {
+            response.close()
+            throw PodcastIndexAuthException.invalidCredentials()
+        }
+
+        return response
     }
 
     private fun generateAuthHash(apiKey: String, apiSecret: String, timestamp: String): String {
