@@ -45,6 +45,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
 
+      - name: Create gradle.properties with API credentials
+        working-directory: android
+        run: |
+          cp gradle.properties.example gradle.properties
+          echo "" >> gradle.properties
+          echo "# API credentials from GitHub secrets" >> gradle.properties
+          echo "PODCAST_INDEX_API_KEY=${{ secrets.PODCAST_INDEX_API_KEY }}" >> gradle.properties
+          echo "PODCAST_INDEX_API_SECRET=${{ secrets.PODCAST_INDEX_API_SECRET }}" >> gradle.properties
+
       - name: Update version properties
         working-directory: android
         run: |
