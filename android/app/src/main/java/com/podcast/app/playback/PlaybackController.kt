@@ -271,13 +271,18 @@ class PlaybackController @Inject constructor(
         val episode = _currentEpisode.value ?: return
         val player = _exoPlayer ?: return
 
+        // Capture player values on main thread (ExoPlayer requirement)
+        val positionMs = player.currentPosition
+        val durationMs = player.duration
+        val speed = _playbackState.value.playbackSpeed
+
         scope.launch(Dispatchers.IO) {
             val progress = PlaybackProgress(
                 episodeId = episode.id,
-                positionSeconds = (player.currentPosition / 1000).toInt(),
-                durationSeconds = (player.duration / 1000).toInt(),
+                positionSeconds = (positionMs / 1000).toInt(),
+                durationSeconds = (durationMs / 1000).toInt(),
                 lastPlayedAt = System.currentTimeMillis(),
-                playbackSpeed = _playbackState.value.playbackSpeed
+                playbackSpeed = speed
             )
             playbackProgressDao.insertOrUpdate(progress)
         }
