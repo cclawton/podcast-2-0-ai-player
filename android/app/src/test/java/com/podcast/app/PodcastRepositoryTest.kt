@@ -7,12 +7,14 @@ import com.podcast.app.data.remote.api.PodcastIndexApi
 import com.podcast.app.data.remote.models.PodcastFeed
 import com.podcast.app.data.remote.models.SearchResponse
 import com.podcast.app.data.repository.PodcastRepository
+import com.podcast.app.data.rss.RssFeedParser
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -24,13 +26,17 @@ class PodcastRepositoryTest {
     private lateinit var podcastDao: PodcastDao
     private lateinit var episodeDao: EpisodeDao
     private lateinit var api: PodcastIndexApi
+    private lateinit var rssFeedParser: RssFeedParser
+    private lateinit var rssHttpClient: OkHttpClient
 
     @Before
     fun setup() {
         podcastDao = mockk(relaxed = true)
         episodeDao = mockk(relaxed = true)
         api = mockk(relaxed = true)
-        repository = PodcastRepository(podcastDao, episodeDao, api)
+        rssFeedParser = mockk(relaxed = true)
+        rssHttpClient = mockk(relaxed = true)
+        repository = PodcastRepository(podcastDao, episodeDao, api, rssFeedParser, rssHttpClient)
     }
 
     @Test
