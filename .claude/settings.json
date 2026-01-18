@@ -132,9 +132,17 @@
   },
   "permissions": {
     "allow": [
-      "Bash(npx claude-flow:*)",
-      "Bash(npx @claude-flow/cli:*)",
-      "mcp__claude-flow__:*"
+      "Bash(*)",
+      "Edit",
+      "Write",
+      "MultiEdit",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Task",
+      "mcp__*"
     ],
     "deny": []
   },
