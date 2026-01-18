@@ -184,6 +184,7 @@ class DownloadFunctionalityTest {
             }
 
             // Step 7: Navigate to Download Manager to verify
+            composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV)
             composeRule.onNodeWithTag(TestTags.NAV_SETTINGS).performClick()
             composeRule.waitForIdle()
             composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)
@@ -346,6 +347,7 @@ class DownloadFunctionalityTest {
         subscribeToNoAgendaPodcast()
 
         // Navigate to Library
+        composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV)
         composeRule.onNodeWithTag(TestTags.NAV_LIBRARY).performClick()
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN)
@@ -375,6 +377,7 @@ class DownloadFunctionalityTest {
         subscribeToNoAgendaPodcast()
 
         // Navigate to Library
+        composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV)
         composeRule.onNodeWithTag(TestTags.NAV_LIBRARY).performClick()
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN)
@@ -397,6 +400,7 @@ class DownloadFunctionalityTest {
                 Thread.sleep(2000)
 
                 // Verify we can navigate to Download Manager and see the download
+                composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV)
                 composeRule.onNodeWithTag(TestTags.NAV_SETTINGS).performClick()
                 composeRule.waitForIdle()
                 composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)

@@ -134,8 +134,12 @@ class DownloadsScreenTest {
         // Simulate configuration change
         composeRule.activityRule.scenario.recreate()
 
+        // Wait for activity to fully initialize after recreation
+        composeRule.waitForIdle()
+        Thread.sleep(1000)
+
         // Navigate back to downloads
-        composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV)
+        composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV, timeoutMillis = 10000)
         composeRule.onNodeWithTag(TestTags.NAV_SETTINGS).performClick()
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)
