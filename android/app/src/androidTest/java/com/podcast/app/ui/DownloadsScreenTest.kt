@@ -51,9 +51,9 @@ class DownloadsScreenTest {
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)
 
-        // Then navigate to Downloads
-        composeRule.onNodeWithText("Downloads").performScrollTo()
-        composeRule.onNodeWithText("Download Manager").performClick()
+        // Then navigate to Downloads using testTag for reliability
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performScrollTo()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performClick()
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.DOWNLOADS_SCREEN)
     }
@@ -140,8 +140,8 @@ class DownloadsScreenTest {
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)
 
-        composeRule.onNodeWithText("Downloads").performScrollTo()
-        composeRule.onNodeWithText("Download Manager").performClick()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performScrollTo()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performClick()
         composeRule.waitForIdle()
 
         // Downloads screen should be displayed

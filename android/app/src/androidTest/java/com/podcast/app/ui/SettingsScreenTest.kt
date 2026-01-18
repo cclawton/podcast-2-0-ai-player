@@ -280,15 +280,16 @@ class SettingsScreenTest {
 
     @Test
     fun settingsScreen_showsDownloadManagerItem() {
-        composeRule.onNodeWithText("Downloads").performScrollTo()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performScrollTo()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).assertIsDisplayed()
         composeRule.onNodeWithText("Download Manager").assertIsDisplayed()
         composeRule.onNodeWithText("View and manage downloaded episodes").assertIsDisplayed()
     }
 
     @Test
     fun settingsScreen_downloadManagerItem_navigatesToDownloads() {
-        composeRule.onNodeWithText("Downloads").performScrollTo()
-        composeRule.onNodeWithText("Download Manager").performClick()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performScrollTo()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performClick()
         composeRule.waitForIdle()
 
         // Should navigate to Downloads screen

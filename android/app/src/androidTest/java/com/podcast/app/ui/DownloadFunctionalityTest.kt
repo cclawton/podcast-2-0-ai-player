@@ -188,8 +188,8 @@ class DownloadFunctionalityTest {
             composeRule.waitForIdle()
             composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)
 
-            composeRule.onNodeWithText("Downloads").performScrollTo()
-            composeRule.onNodeWithText("Download Manager").performClick()
+            composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performScrollTo()
+            composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performClick()
             composeRule.waitForIdle()
             composeRule.waitUntilNodeWithTagExists(TestTags.DOWNLOADS_SCREEN)
 
@@ -294,8 +294,8 @@ class DownloadFunctionalityTest {
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)
 
-        composeRule.onNodeWithText("Downloads").performScrollTo()
-        composeRule.onNodeWithText("Download Manager").performClick()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performScrollTo()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performClick()
         composeRule.waitForIdle()
 
         composeRule.waitUntilNodeWithTagExists(TestTags.DOWNLOADS_SCREEN)
@@ -399,9 +399,10 @@ class DownloadFunctionalityTest {
                 // Verify we can navigate to Download Manager and see the download
                 composeRule.onNodeWithTag(TestTags.NAV_SETTINGS).performClick()
                 composeRule.waitForIdle()
+                composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)
 
-                composeRule.onNodeWithText("Downloads").performScrollTo()
-                composeRule.onNodeWithText("Download Manager").performClick()
+                composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performScrollTo()
+                composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performClick()
                 composeRule.waitForIdle()
 
                 composeRule.waitUntilNodeWithTagExists(TestTags.DOWNLOADS_SCREEN)
@@ -466,8 +467,8 @@ class DownloadFunctionalityTest {
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)
 
-        composeRule.onNodeWithText("Downloads").performScrollTo()
-        composeRule.onNodeWithText("Download Manager").performClick()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performScrollTo()
+        composeRule.onNodeWithTag(TestTags.DOWNLOAD_MANAGER_ITEM).performClick()
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.DOWNLOADS_SCREEN)
     }

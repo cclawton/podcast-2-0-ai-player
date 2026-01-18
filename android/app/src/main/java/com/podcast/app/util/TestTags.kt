@@ -69,6 +69,7 @@ object TestTags {
     const val OFFLINE_MODE_TOGGLE = "offline_mode_toggle"
 
     // Downloads Screen
+    const val DOWNLOAD_MANAGER_ITEM = "download_manager_item"
     const val DOWNLOADS_SCREEN = "downloads_screen"
     const val DOWNLOADS_LIST = "downloads_list"
     const val DOWNLOAD_ITEM = "download_item"

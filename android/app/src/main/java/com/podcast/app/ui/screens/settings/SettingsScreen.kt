@@ -154,7 +154,8 @@ fun SettingsScreen(
                 title = "Download Manager",
                 description = "View and manage downloaded episodes",
                 icon = Icons.Filled.Download,
-                onClick = { navController.navigate(Screen.Downloads.route) }
+                onClick = { navController.navigate(Screen.Downloads.route) },
+                testTag = "download_manager_item"
             )
             SettingSwitch(
                 title = "Wi-Fi Only Downloads",
@@ -376,11 +377,13 @@ private fun NavigationItem(
     title: String,
     description: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    testTag: String? = null
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
