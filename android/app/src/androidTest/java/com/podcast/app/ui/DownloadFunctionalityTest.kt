@@ -183,7 +183,12 @@ class DownloadFunctionalityTest {
                 }
             }
 
-            // Step 7: Navigate to Download Manager to verify
+            // Step 7: Navigate back to a main screen first (Episodes screen doesn't have bottom nav)
+            // Press back to return to Search or Library screen
+            composeRule.onNodeWithContentDescription("Back").performClick()
+            composeRule.waitForIdle()
+
+            // Now navigate to Download Manager via Settings
             composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV)
             composeRule.onNodeWithTag(TestTags.NAV_SETTINGS).performClick()
             composeRule.waitForIdle()
@@ -436,9 +441,30 @@ class DownloadFunctionalityTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag(TestTags.RSS_SUBSCRIBE_BUTTON).performClick()
 
-        // Wait for subscription to complete
+        // Wait for subscription to complete - app will navigate to Episodes screen
         Thread.sleep(NETWORK_TIMEOUT_MS / 2)
         composeRule.waitForIdle()
+
+        // After successful subscription, app navigates to Episodes screen which doesn't have bottom nav
+        // Navigate back to a main screen (Search) so bottom nav is accessible
+        try {
+            // Check if we're on Episodes screen (no bottom nav)
+            val bottomNavExists = composeRule.onAllNodesWithTag(TestTags.BOTTOM_NAV)
+                .fetchSemanticsNodes().isNotEmpty()
+            if (!bottomNavExists) {
+                // Press back to return to Search screen
+                composeRule.onNodeWithContentDescription("Back").performClick()
+                composeRule.waitForIdle()
+            }
+        } catch (e: Throwable) {
+            // If check fails, try pressing back anyway
+            try {
+                composeRule.onNodeWithContentDescription("Back").performClick()
+                composeRule.waitForIdle()
+            } catch (e2: Throwable) {
+                // Ignore - may already be on a main screen
+            }
+        }
     }
 
     private fun navigateToEpisodes() {

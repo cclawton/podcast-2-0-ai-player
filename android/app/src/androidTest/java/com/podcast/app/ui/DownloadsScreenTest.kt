@@ -135,11 +135,16 @@ class DownloadsScreenTest {
         composeRule.activityRule.scenario.recreate()
 
         // Wait for activity to fully initialize after recreation
+        // The activity restarts at the start destination (Library screen)
         composeRule.waitForIdle()
-        Thread.sleep(1000)
+        Thread.sleep(2000) // Give more time for Hilt injection and UI to settle
 
-        // Navigate back to downloads
-        composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV, timeoutMillis = 10000)
+        // After recreation, app restarts at Library screen which has bottom nav
+        // Wait for Library screen to appear first (start destination)
+        composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN, timeoutMillis = 15000)
+
+        // Now navigate to downloads via Settings
+        composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV, timeoutMillis = 5000)
         composeRule.onNodeWithTag(TestTags.NAV_SETTINGS).performClick()
         composeRule.waitForIdle()
         composeRule.waitUntilNodeWithTagExists(TestTags.SETTINGS_SCREEN)
