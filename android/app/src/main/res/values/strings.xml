@@ -30,8 +30,21 @@
     <string name="enable_ollama">Enable Ollama (Local)</string>
     <string name="enable_claude">Enable Claude API</string>
 
+    <!-- Sync -->
+    <string name="sync_settings">Sync Settings</string>
+    <string name="sync_interval">Sync Interval</string>
+    <string name="sync_wifi_only">Wi-Fi Only Sync</string>
+    <string name="sync_notifications">New Episode Notifications</string>
+    <string name="sync_now">Sync Now</string>
+    <string name="sync_status">Sync Status</string>
+    <string name="sync_never">Never synced</string>
+    <string name="sync_in_progress">Syncing...</string>
+    <string name="sync_success">All feeds up to date</string>
+    <string name="sync_new_episodes">Found %d new episode(s)</string>
+
     <!-- Errors -->
     <string name="error_network">Network error. Please check your connection.</string>
     <string name="error_not_found">Podcast not found.</string>
     <string name="error_playback">Playback error occurred.</string>
+    <string name="error_sync">Sync failed. Please try again.</string>
 </resources>

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -16,7 +17,17 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -28,9 +39,18 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import android.os.Build
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -38,6 +58,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.podcast.app.privacy.OperationalMode
 import com.podcast.app.privacy.PrivacyPreset
+import com.podcast.app.sync.SyncInterval
 import com.podcast.app.ui.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,10 +68,38 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
+    val syncSettings by viewModel.syncSettings.collectAsState()
     val operationalMode by viewModel.operationalMode.collectAsState()
     val permissionState by viewModel.permissionState.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
+    val syncMessage by viewModel.syncMessage.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show snackbar when sync message changes
+    LaunchedEffect(syncMessage) {
+        syncMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearSyncMessage()
+        }
+    }
+
+    // Refresh permission state when returning to this screen
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshPermissions()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
@@ -166,6 +215,50 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Feed Sync settings
+            SectionHeader("Feed Sync")
+
+            // Only show sync settings if background sync is enabled in privacy settings
+            if (settings.allowBackgroundSync) {
+                SyncIntervalSelector(
+                    currentInterval = syncSettings.syncInterval,
+                    onIntervalChanged = { viewModel.updateSyncInterval(it) }
+                )
+
+                SettingSwitch(
+                    title = "Wi-Fi Only Sync",
+                    description = "Only sync feeds on Wi-Fi",
+                    checked = syncSettings.wifiOnly,
+                    onCheckedChange = { viewModel.updateSyncWifiOnly(it) }
+                )
+
+                SettingSwitch(
+                    title = "New Episode Notifications",
+                    description = "Show notification when new episodes found",
+                    checked = syncSettings.notifyNewEpisodes,
+                    onCheckedChange = { viewModel.updateSyncNotifications(it) }
+                )
+
+                // Sync status card
+                SyncStatusCard(
+                    lastSyncTimestamp = syncSettings.lastSyncTimestamp,
+                    lastSyncError = syncSettings.lastSyncError,
+                    lastSyncNewEpisodes = syncSettings.lastSyncNewEpisodes,
+                    isSyncing = isSyncing,
+                    onSyncNow = { viewModel.syncNow() },
+                    formatTime = { viewModel.formatLastSyncTime(it) }
+                )
+            } else {
+                Text(
+                    text = "Enable 'Background Sync' in Network settings to configure automatic feed updates.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Data storage
             SectionHeader("Data Storage")
             SettingSwitch(
@@ -183,23 +276,21 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Permissions
+            // Permissions - Only show RUNTIME permissions that users can change
             SectionHeader("Permissions")
-            PermissionItem(
-                title = "Internet",
-                granted = permissionState.hasInternet,
-                description = "Optional - app works offline"
-            )
             PermissionItem(
                 title = "Microphone",
                 granted = permissionState.hasRecordAudio,
                 description = "For voice commands"
             )
-            PermissionItem(
-                title = "Foreground Service",
-                granted = permissionState.hasForegroundService,
-                description = "Background playback"
-            )
+            // POST_NOTIFICATIONS is a runtime permission on Android 13+ (API 33+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                PermissionItem(
+                    title = "Notifications",
+                    granted = permissionState.hasPostNotifications,
+                    description = "For playback controls and updates"
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -431,5 +522,142 @@ private fun isPresetSelected(settings: com.podcast.app.privacy.PrivacySettings, 
         PrivacyPreset.MAXIMUM_PRIVACY -> !settings.networkEnabled
         PrivacyPreset.BALANCED -> settings.networkEnabled && !settings.allowBackgroundSync && !settings.allowClaudeApi
         PrivacyPreset.FULL_FEATURES -> settings.networkEnabled && settings.allowBackgroundSync
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SyncIntervalSelector(
+    currentInterval: SyncInterval,
+    onIntervalChanged: (SyncInterval) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Sync Interval",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = "How often to check for new episodes",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+            modifier = Modifier.weight(0.8f)
+        ) {
+            OutlinedTextField(
+                value = currentInterval.displayName,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor(),
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                SyncInterval.entries.forEach { interval ->
+                    DropdownMenuItem(
+                        text = { Text(interval.displayName) },
+                        onClick = {
+                            onIntervalChanged(interval)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SyncStatusCard(
+    lastSyncTimestamp: Long,
+    lastSyncError: String?,
+    lastSyncNewEpisodes: Int,
+    isSyncing: Boolean,
+    onSyncNow: () -> Unit,
+    formatTime: (Long) -> String
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (lastSyncError != null) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Sync Status",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = if (lastSyncTimestamp > 0) {
+                            "Last synced: ${formatTime(lastSyncTimestamp)}"
+                        } else {
+                            "Never synced"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (lastSyncError != null) {
+                        Text(
+                            text = "Error: $lastSyncError",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else if (lastSyncNewEpisodes > 0) {
+                        Text(
+                            text = "Found $lastSyncNewEpisodes new episode${if (lastSyncNewEpisodes > 1) "s" else ""}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                if (isSyncing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.padding(start = 8.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Button(
+                        onClick = onSyncNow,
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Sync,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                        Text("Sync Now")
+                    }
+                }
+            }
+        }
     }
 }
