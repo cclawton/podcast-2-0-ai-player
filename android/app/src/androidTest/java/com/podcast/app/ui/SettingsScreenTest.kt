@@ -541,4 +541,95 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithTag(TestTags.SETTINGS_SCREEN).assertIsDisplayed()
     }
+
+    // ================================
+    // Storage/Auto-delete Settings Tests (GH#24)
+    // ================================
+
+    @Test
+    fun settingsScreen_showsStorageSection() {
+        composeRule.onNodeWithText("Storage").performScrollTo()
+        composeRule.onNodeWithText("Storage").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_showsAutoDeleteToggle() {
+        composeRule.onNodeWithText("Auto-delete old episodes").performScrollTo()
+        composeRule.onNodeWithText("Auto-delete old episodes").assertIsDisplayed()
+        composeRule.onNodeWithText("Remove downloaded episodes after retention period").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_autoDeleteToggle_isClickable() {
+        composeRule.onNodeWithText("Auto-delete old episodes").performScrollTo()
+        composeRule.onNodeWithText("Auto-delete old episodes").performClick()
+        composeRule.waitForIdle()
+
+        // After enabling, retention period selector should appear
+        composeRule.onNodeWithText("Delete after").performScrollTo()
+        composeRule.onNodeWithText("Delete after").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_showsOnlyDeletePlayedToggle_whenAutoDeleteEnabled() {
+        // Enable auto-delete first
+        composeRule.onNodeWithText("Auto-delete old episodes").performScrollTo()
+        composeRule.onNodeWithText("Auto-delete old episodes").performClick()
+        composeRule.waitForIdle()
+
+        // Check for the "Only delete played episodes" toggle
+        composeRule.onNodeWithText("Only delete played episodes").performScrollTo()
+        composeRule.onNodeWithText("Only delete played episodes").assertIsDisplayed()
+    }
+
+    // ================================
+    // Claude API Settings Tests (GH#26)
+    // ================================
+
+    @Test
+    fun settingsScreen_claudeApiToggle_showsConfigWhenEnabled() {
+        composeRule.onNodeWithText("Claude API").performScrollTo()
+        composeRule.onNodeWithText("Claude API").performClick()
+        composeRule.waitForIdle()
+
+        // After enabling, API key configuration should appear
+        composeRule.onNodeWithText("API Key Configuration").performScrollTo()
+        composeRule.onNodeWithText("API Key Configuration").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_claudeApiConfig_showsApiKeyInput() {
+        // Enable Claude API first
+        composeRule.onNodeWithText("Claude API").performScrollTo()
+        composeRule.onNodeWithText("Claude API").performClick()
+        composeRule.waitForIdle()
+
+        // Check for API key input
+        composeRule.onNodeWithTag("claude_api_key_input").performScrollTo()
+        composeRule.onNodeWithTag("claude_api_key_input").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_claudeApiConfig_showsTestConnectionButton() {
+        // Enable Claude API first
+        composeRule.onNodeWithText("Claude API").performScrollTo()
+        composeRule.onNodeWithText("Claude API").performClick()
+        composeRule.waitForIdle()
+
+        // Check for test connection button
+        composeRule.onNodeWithTag("test_connection_button").performScrollTo()
+        composeRule.onNodeWithTag("test_connection_button").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_claudeApiConfig_showsSecurityNote() {
+        // Enable Claude API first
+        composeRule.onNodeWithText("Claude API").performScrollTo()
+        composeRule.onNodeWithText("Claude API").performClick()
+        composeRule.waitForIdle()
+
+        // Check for security note
+        composeRule.onNodeWithText("Your API key is stored securely using Android Keystore encryption.").performScrollTo()
+        composeRule.onNodeWithText("Your API key is stored securely using Android Keystore encryption.").assertIsDisplayed()
+    }
 }

@@ -89,6 +89,16 @@ data class PrivacySettings(
     val downloadRetentionDays: Int = 30,
 
     /**
+     * Enable automatic deletion of old episodes.
+     */
+    val autoDeleteEnabled: Boolean = false,
+
+    /**
+     * Only delete episodes that have been played (>90% progress).
+     */
+    val autoDeleteOnlyPlayed: Boolean = true,
+
+    /**
      * Store search history locally.
      */
     val storeSearchHistory: Boolean = true,
@@ -116,6 +126,8 @@ data class PrivacySettings(
             allowTranscripts = false,
             autoDownloadOnWifiOnly = true,
             maxAutoDownloadSize = 0,
+            autoDeleteEnabled = false,
+            autoDeleteOnlyPlayed = true,
             storeSearchHistory = false,
             storePlaybackHistory = true
         )
@@ -136,6 +148,8 @@ data class PrivacySettings(
             allowTranscripts = true,
             autoDownloadOnWifiOnly = true,
             maxAutoDownloadSize = 100 * 1024 * 1024,
+            autoDeleteEnabled = false,
+            autoDeleteOnlyPlayed = true,
             storeSearchHistory = true,
             storePlaybackHistory = true
         )

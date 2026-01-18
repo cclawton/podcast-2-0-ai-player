@@ -22,7 +22,7 @@ import com.podcast.app.data.local.entities.SearchHistory
         Download::class,
         SearchHistory::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

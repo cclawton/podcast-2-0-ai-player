@@ -48,8 +48,18 @@ class PrivacyRepository @Inject constructor(
         val AUTO_DOWNLOAD_WIFI_ONLY = booleanPreferencesKey("auto_download_wifi_only")
         val MAX_AUTO_DOWNLOAD_SIZE = longPreferencesKey("max_auto_download_size")
         val DOWNLOAD_RETENTION_DAYS = intPreferencesKey("download_retention_days")
+        val AUTO_DELETE_ENABLED = booleanPreferencesKey("auto_delete_enabled")
+        val AUTO_DELETE_ONLY_PLAYED = booleanPreferencesKey("auto_delete_only_played")
         val STORE_SEARCH_HISTORY = booleanPreferencesKey("store_search_history")
         val STORE_PLAYBACK_HISTORY = booleanPreferencesKey("store_playback_history")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+    }
+
+    /**
+     * Flow of onboarding completion status.
+     */
+    val isOnboardingCompleted: Flow<Boolean> = context.privacyDataStore.data.map { prefs ->
+        prefs[PreferenceKeys.ONBOARDING_COMPLETED] ?: false
     }
 
     /**
@@ -72,6 +82,8 @@ class PrivacyRepository @Inject constructor(
             maxAutoDownloadSize = prefs[PreferenceKeys.MAX_AUTO_DOWNLOAD_SIZE]
                 ?: (100 * 1024 * 1024L),
             downloadRetentionDays = prefs[PreferenceKeys.DOWNLOAD_RETENTION_DAYS] ?: 30,
+            autoDeleteEnabled = prefs[PreferenceKeys.AUTO_DELETE_ENABLED] ?: false,
+            autoDeleteOnlyPlayed = prefs[PreferenceKeys.AUTO_DELETE_ONLY_PLAYED] ?: true,
             storeSearchHistory = prefs[PreferenceKeys.STORE_SEARCH_HISTORY] ?: true,
             storePlaybackHistory = prefs[PreferenceKeys.STORE_PLAYBACK_HISTORY] ?: true
         )
@@ -95,6 +107,8 @@ class PrivacyRepository @Inject constructor(
             prefs[PreferenceKeys.AUTO_DOWNLOAD_WIFI_ONLY] = newSettings.autoDownloadOnWifiOnly
             prefs[PreferenceKeys.MAX_AUTO_DOWNLOAD_SIZE] = newSettings.maxAutoDownloadSize
             prefs[PreferenceKeys.DOWNLOAD_RETENTION_DAYS] = newSettings.downloadRetentionDays
+            prefs[PreferenceKeys.AUTO_DELETE_ENABLED] = newSettings.autoDeleteEnabled
+            prefs[PreferenceKeys.AUTO_DELETE_ONLY_PLAYED] = newSettings.autoDeleteOnlyPlayed
             prefs[PreferenceKeys.STORE_SEARCH_HISTORY] = newSettings.storeSearchHistory
             prefs[PreferenceKeys.STORE_PLAYBACK_HISTORY] = newSettings.storePlaybackHistory
         }
@@ -169,6 +183,18 @@ class PrivacyRepository @Inject constructor(
         }
     }
 
+    suspend fun updateAutoDeleteEnabled(enabled: Boolean) {
+        context.privacyDataStore.edit { prefs ->
+            prefs[PreferenceKeys.AUTO_DELETE_ENABLED] = enabled
+        }
+    }
+
+    suspend fun updateAutoDeleteOnlyPlayed(onlyPlayed: Boolean) {
+        context.privacyDataStore.edit { prefs ->
+            prefs[PreferenceKeys.AUTO_DELETE_ONLY_PLAYED] = onlyPlayed
+        }
+    }
+
     suspend fun updateStoreSearchHistory(store: Boolean) {
         context.privacyDataStore.edit { prefs ->
             prefs[PreferenceKeys.STORE_SEARCH_HISTORY] = store
@@ -178,6 +204,15 @@ class PrivacyRepository @Inject constructor(
     suspend fun updateStorePlaybackHistory(store: Boolean) {
         context.privacyDataStore.edit { prefs ->
             prefs[PreferenceKeys.STORE_PLAYBACK_HISTORY] = store
+        }
+    }
+
+    /**
+     * Mark onboarding as completed.
+     */
+    suspend fun completeOnboarding() {
+        context.privacyDataStore.edit { prefs ->
+            prefs[PreferenceKeys.ONBOARDING_COMPLETED] = true
         }
     }
 

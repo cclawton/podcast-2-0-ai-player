@@ -7,6 +7,7 @@ import com.podcast.app.data.local.dao.EpisodeDao
 import com.podcast.app.data.local.dao.PlaybackProgressDao
 import com.podcast.app.data.local.dao.PodcastDao
 import com.podcast.app.data.local.dao.SearchHistoryDao
+import com.podcast.app.data.local.database.Migrations
 import com.podcast.app.data.local.database.PodcastDatabase
 import dagger.Module
 import dagger.Provides
@@ -27,6 +28,7 @@ object DatabaseModule {
             PodcastDatabase::class.java,
             PodcastDatabase.DATABASE_NAME
         )
+            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
     }

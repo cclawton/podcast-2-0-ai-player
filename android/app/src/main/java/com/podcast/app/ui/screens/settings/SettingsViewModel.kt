@@ -2,6 +2,8 @@ package com.podcast.app.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.podcast.app.api.claude.ClaudeApiClient
+import com.podcast.app.api.claude.ClaudeApiKeyManager
 import com.podcast.app.privacy.OperationalMode
 import com.podcast.app.privacy.PrivacyManager
 import com.podcast.app.privacy.PrivacyPreset
@@ -21,7 +23,9 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val privacyManager: PrivacyManager,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    private val claudeApiKeyManager: ClaudeApiKeyManager,
+    private val claudeApiClient: ClaudeApiClient
 ) : ViewModel() {
 
     val settings: StateFlow<PrivacySettings> = privacyManager.settings
@@ -41,10 +45,29 @@ class SettingsViewModel @Inject constructor(
 
     val permissionState = privacyManager.permissionState
 
+    // Claude API state
+    private val _claudeApiKey = MutableStateFlow("")
+    val claudeApiKey: StateFlow<String> = _claudeApiKey.asStateFlow()
+
+    private val _isTestingConnection = MutableStateFlow(false)
+    val isTestingConnection: StateFlow<Boolean> = _isTestingConnection.asStateFlow()
+
+    private val _connectionTestResult = MutableStateFlow<Boolean?>(null)
+    val connectionTestResult: StateFlow<Boolean?> = _connectionTestResult.asStateFlow()
+
+    private val _connectionTestMessage = MutableStateFlow<String?>(null)
+    val connectionTestMessage: StateFlow<String?> = _connectionTestMessage.asStateFlow()
+
     init {
         refreshOperationalMode()
         // Initialize sync manager
         syncManager.initialize()
+        // Load Claude API key
+        loadClaudeApiKey()
+    }
+
+    private fun loadClaudeApiKey() {
+        _claudeApiKey.value = claudeApiKeyManager.getApiKey() ?: ""
     }
 
     private fun refreshOperationalMode() {
@@ -106,6 +129,48 @@ class SettingsViewModel @Inject constructor(
     fun updateClaudeApi(enabled: Boolean) {
         viewModelScope.launch {
             privacyManager.updateSettings { it.copy(allowClaudeApi = enabled) }
+            if (!enabled) {
+                // Clear API key when disabling
+                clearClaudeApiKey()
+            }
+        }
+    }
+
+    fun updateClaudeApiKey(key: String) {
+        _claudeApiKey.value = key
+        _connectionTestResult.value = null
+        _connectionTestMessage.value = null
+        if (key.isNotBlank()) {
+            claudeApiKeyManager.saveApiKey(key)
+        }
+    }
+
+    fun clearClaudeApiKey() {
+        _claudeApiKey.value = ""
+        _connectionTestResult.value = null
+        _connectionTestMessage.value = null
+        claudeApiKeyManager.clearApiKey()
+    }
+
+    fun testClaudeConnection() {
+        val apiKey = _claudeApiKey.value
+        if (apiKey.isBlank()) return
+
+        viewModelScope.launch {
+            _isTestingConnection.value = true
+            _connectionTestResult.value = null
+            _connectionTestMessage.value = null
+
+            val result = claudeApiClient.testConnection(apiKey)
+            result.onSuccess { testResult ->
+                _connectionTestResult.value = testResult.success
+                _connectionTestMessage.value = testResult.message
+            }.onFailure { e ->
+                _connectionTestResult.value = false
+                _connectionTestMessage.value = e.message ?: "Connection failed"
+            }
+
+            _isTestingConnection.value = false
         }
     }
 
@@ -124,6 +189,24 @@ class SettingsViewModel @Inject constructor(
     fun updateStorePlaybackHistory(enabled: Boolean) {
         viewModelScope.launch {
             privacyManager.updateSettings { it.copy(storePlaybackHistory = enabled) }
+        }
+    }
+
+    fun updateAutoDeleteEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            privacyManager.updateSettings { it.copy(autoDeleteEnabled = enabled) }
+        }
+    }
+
+    fun updateAutoDeleteOnlyPlayed(enabled: Boolean) {
+        viewModelScope.launch {
+            privacyManager.updateSettings { it.copy(autoDeleteOnlyPlayed = enabled) }
+        }
+    }
+
+    fun updateRetentionDays(days: Int) {
+        viewModelScope.launch {
+            privacyManager.updateSettings { it.copy(downloadRetentionDays = days) }
         }
     }
 

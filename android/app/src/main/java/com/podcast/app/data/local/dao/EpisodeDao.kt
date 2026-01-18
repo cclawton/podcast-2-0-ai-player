@@ -86,4 +86,12 @@ interface EpisodeDao {
 
     @Query("DELETE FROM episodes WHERE podcast_id = :podcastId")
     suspend fun deleteEpisodesForPodcast(podcastId: Long)
+
+    @Query("""
+        SELECT * FROM episodes
+        WHERE podcast_id = :podcastId
+        ORDER BY published_at DESC
+        LIMIT 1
+    """)
+    suspend fun getLatestEpisodeForPodcast(podcastId: Long): Episode?
 }

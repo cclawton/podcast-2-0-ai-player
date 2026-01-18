@@ -16,9 +16,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +57,8 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import android.os.Build
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -73,6 +79,12 @@ fun SettingsScreen(
     val permissionState by viewModel.permissionState.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val syncMessage by viewModel.syncMessage.collectAsState()
+
+    // Claude API state
+    val claudeApiKey by viewModel.claudeApiKey.collectAsState()
+    val isTestingConnection by viewModel.isTestingConnection.collectAsState()
+    val connectionTestResult by viewModel.connectionTestResult.collectAsState()
+    val connectionTestMessage by viewModel.connectionTestMessage.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -195,6 +207,19 @@ fun SettingsScreen(
                 onCheckedChange = { viewModel.updateClaudeApi(it) }
             )
 
+            // Claude API configuration when enabled
+            if (settings.allowClaudeApi) {
+                ClaudeApiConfiguration(
+                    apiKey = claudeApiKey,
+                    onApiKeyChange = { viewModel.updateClaudeApiKey(it) },
+                    onClearApiKey = { viewModel.clearClaudeApiKey() },
+                    onTestConnection = { viewModel.testClaudeConnection() },
+                    isTestingConnection = isTestingConnection,
+                    connectionTestResult = connectionTestResult,
+                    connectionTestMessage = connectionTestMessage
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Download settings
@@ -212,6 +237,31 @@ fun SettingsScreen(
                 checked = settings.autoDownloadOnWifiOnly,
                 onCheckedChange = { viewModel.updateAutoDownloadOnWifiOnly(it) }
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Storage settings
+            SectionHeader("Storage")
+            SettingSwitch(
+                title = "Auto-delete old episodes",
+                description = "Remove downloaded episodes after retention period",
+                checked = settings.autoDeleteEnabled,
+                onCheckedChange = { viewModel.updateAutoDeleteEnabled(it) }
+            )
+
+            if (settings.autoDeleteEnabled) {
+                RetentionPeriodSelector(
+                    currentDays = settings.downloadRetentionDays,
+                    onDaysChanged = { viewModel.updateRetentionDays(it) }
+                )
+
+                SettingSwitch(
+                    title = "Only delete played episodes",
+                    description = "Preserve unplayed downloads",
+                    checked = settings.autoDeleteOnlyPlayed,
+                    onCheckedChange = { viewModel.updateAutoDeleteOnlyPlayed(it) }
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -658,6 +708,211 @@ private fun SyncStatusCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RetentionPeriodSelector(
+    currentDays: Int,
+    onDaysChanged: (Int) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val retentionOptions = listOf(
+        7 to "1 week",
+        14 to "2 weeks",
+        30 to "1 month",
+        60 to "2 months",
+        90 to "3 months"
+    )
+
+    val currentLabel = retentionOptions.find { it.first == currentDays }?.second
+        ?: "$currentDays days"
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Delete after",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = "Remove episodes older than this",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+            modifier = Modifier.weight(0.6f)
+        ) {
+            OutlinedTextField(
+                value = currentLabel,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor(),
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                retentionOptions.forEach { (days, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            onDaysChanged(days)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClaudeApiConfiguration(
+    apiKey: String,
+    onApiKeyChange: (String) -> Unit,
+    onClearApiKey: () -> Unit,
+    onTestConnection: () -> Unit,
+    isTestingConnection: Boolean,
+    connectionTestResult: Boolean?,
+    connectionTestMessage: String?
+) {
+    var showApiKey by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .testTag("claude_api_config"),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "API Key Configuration",
+                style = MaterialTheme.typography.titleSmall
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = apiKey,
+                onValueChange = onApiKeyChange,
+                label = { Text("API Key") },
+                placeholder = { Text("sk-ant-...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("claude_api_key_input"),
+                singleLine = true,
+                visualTransformation = if (showApiKey) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                trailingIcon = {
+                    Row {
+                        IconButton(onClick = { showApiKey = !showApiKey }) {
+                            Icon(
+                                imageVector = if (showApiKey) {
+                                    Icons.Filled.VisibilityOff
+                                } else {
+                                    Icons.Filled.Visibility
+                                },
+                                contentDescription = if (showApiKey) "Hide API key" else "Show API key"
+                            )
+                        }
+                        if (apiKey.isNotBlank()) {
+                            IconButton(onClick = onClearApiKey) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Clear API key"
+                                )
+                            }
+                        }
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = onTestConnection,
+                    enabled = apiKey.isNotBlank() && !isTestingConnection,
+                    modifier = Modifier.testTag("test_connection_button")
+                ) {
+                    if (isTestingConnection) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.padding(start = 8.dp))
+                    }
+                    Text(if (isTestingConnection) "Testing..." else "Test Connection")
+                }
+
+                // Show result
+                if (connectionTestResult != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (connectionTestResult) {
+                                Icons.Filled.Check
+                            } else {
+                                Icons.Filled.Close
+                            },
+                            contentDescription = null,
+                            tint = if (connectionTestResult) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.padding(start = 4.dp))
+                        Text(
+                            text = connectionTestMessage ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (connectionTestResult) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Your API key is stored securely using Android Keystore encryption.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

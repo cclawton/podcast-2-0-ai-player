@@ -110,4 +110,32 @@ object TestTags {
     const val CONFIRMATION_DIALOG = "confirmation_dialog"
     const val CONFIRM_BUTTON = "confirm_button"
     const val CANCEL_BUTTON = "cancel_button"
+
+    // Auto-download (GH#23)
+    const val AUTO_DOWNLOAD_TOGGLE = "auto_download_toggle"
+
+    // Storage/Auto-delete settings (GH#24)
+    const val AUTO_DELETE_TOGGLE = "auto_delete_toggle"
+    const val RETENTION_PERIOD_SELECTOR = "retention_period_selector"
+    const val DELETE_ONLY_PLAYED_TOGGLE = "delete_only_played_toggle"
+
+    // Claude API settings (GH#26)
+    const val CLAUDE_API_KEY_INPUT = "claude_api_key_input"
+    const val CLAUDE_API_KEY_VISIBILITY = "claude_api_key_visibility"
+    const val TEST_CLAUDE_CONNECTION = "test_claude_connection"
+    const val CLAUDE_CONNECTION_STATUS = "claude_connection_status"
+
+    // Onboarding (GH#27)
+    const val ONBOARDING_SCREEN = "onboarding_screen"
+    const val ENABLE_MICROPHONE_BUTTON = "enable_microphone_button"
+    const val SKIP_ONBOARDING_BUTTON = "skip_onboarding_button"
+
+    // Podcast 2.0 features (GH#10)
+    const val CHAPTER_LIST = "chapter_list"
+    const val CHAPTER_ITEM = "chapter_item"
+    const val TRANSCRIPT_VIEW = "transcript_view"
+    const val VALUE_INFO_CARD = "value_info_card"
+    const val PLAYER_TAB_INFO = "player_tab_info"
+    const val PLAYER_TAB_CHAPTERS = "player_tab_chapters"
+    const val PLAYER_TAB_TRANSCRIPT = "player_tab_transcript"
 }

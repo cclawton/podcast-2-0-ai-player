@@ -232,8 +232,13 @@ fun PlayerScreen(
         if (showInfoSheet && episode != null) {
             EpisodeInfoBottomSheet(
                 episode = episode!!,
+                podcast = podcast,
                 podcastTitle = podcast?.title,
                 fallbackImageUrl = podcast?.imageUrl,
+                onChapterClick = { startTimeSeconds ->
+                    viewModel.seekTo(startTimeSeconds * 1000L)
+                    showInfoSheet = false
+                },
                 onDismiss = { showInfoSheet = false }
             )
         }

@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
@@ -74,6 +75,7 @@ fun EpisodesScreen(
     val error by viewModel.error.collectAsState()
     val currentEpisode by viewModel.currentEpisode.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
+    val autoDownloadEnabled by viewModel.autoDownloadEnabled.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showMenu by remember { mutableStateOf(false) }
@@ -192,7 +194,9 @@ fun EpisodesScreen(
                             title = podcast?.title ?: "",
                             author = podcast?.author,
                             description = podcast?.description,
-                            episodeCount = episodes.size
+                            episodeCount = episodes.size,
+                            autoDownloadEnabled = autoDownloadEnabled,
+                            onAutoDownloadToggle = { viewModel.toggleAutoDownload() }
                         )
                     }
 
@@ -254,7 +258,9 @@ private fun PodcastHeader(
     title: String,
     author: String?,
     description: String?,
-    episodeCount: Int
+    episodeCount: Int,
+    autoDownloadEnabled: Boolean = false,
+    onAutoDownloadToggle: () -> Unit = {}
 ) {
     Row(modifier = Modifier.fillMaxWidth()) {
         AsyncImage(
@@ -303,6 +309,26 @@ private fun PodcastHeader(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis
+        )
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    // Auto-download toggle
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("auto_download_toggle"),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Auto-download new episodes",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Switch(
+            checked = autoDownloadEnabled,
+            onCheckedChange = { onAutoDownloadToggle() }
         )
     }
 

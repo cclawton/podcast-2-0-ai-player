@@ -17,12 +17,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Explicit
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Numbers
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -44,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.podcast.app.data.local.entities.Episode
+import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.util.TestTags
 import com.podcast.app.util.TextUtils
 import org.json.JSONArray
@@ -64,9 +68,11 @@ import java.util.Locale
 @Composable
 fun EpisodeInfoBottomSheet(
     episode: Episode,
+    podcast: Podcast? = null,
     podcastTitle: String? = null,
     fallbackImageUrl: String? = null,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    onChapterClick: ((startTimeSeconds: Int) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -225,6 +231,14 @@ fun EpisodeInfoBottomSheet(
                     modifier = Modifier.testTag(TestTags.EPISODE_INFO_CHAPTERS_HEADER)
                 )
 
+                if (onChapterClick != null) {
+                    Text(
+                        text = "Tap to jump to chapter",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 chapters.forEachIndexed { index, chapter ->
@@ -232,8 +246,64 @@ fun EpisodeInfoBottomSheet(
                         index = index + 1,
                         title = chapter.title,
                         startTime = chapter.startTime,
+                        isClickable = onChapterClick != null,
+                        onClick = { onChapterClick?.invoke(chapter.startTime) },
                         modifier = Modifier.testTag("${TestTags.EPISODE_INFO_CHAPTER_ITEM}_$index")
                     )
+                }
+            }
+
+            // Value4Value / Funding section
+            podcast?.let { p ->
+                if (p.fundingUrl != null || p.valueType != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Support This Podcast",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag(TestTags.VALUE_INFO_CARD)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Funding link
+                    p.fundingUrl?.let { fundingUrl ->
+                        MetadataRow(
+                            icon = Icons.Default.VolunteerActivism,
+                            label = "Donate",
+                            value = p.fundingMessage ?: "Support the show",
+                            isLink = true,
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(fundingUrl))
+                                context.startActivity(intent)
+                            }
+                        )
+                    }
+
+                    // Value4Value (Lightning, etc.)
+                    p.valueType?.let { valueType ->
+                        MetadataRow(
+                            icon = Icons.Default.AttachMoney,
+                            label = "Value4Value",
+                            value = when (valueType.lowercase()) {
+                                "lightning" -> "Lightning Network"
+                                else -> valueType
+                            }
+                        )
+
+                        p.valueModel?.let { model ->
+                            Text(
+                                text = "Model: $model",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 32.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -319,20 +389,33 @@ private fun ChapterItem(
     index: Int,
     title: String,
     startTime: Int,
+    isClickable: Boolean = false,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .let { mod ->
+                if (isClickable && onClick != null) {
+                    mod.clickable(onClick = onClick)
+                } else {
+                    mod
+                }
+            }
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
-            imageVector = Icons.Default.List,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            imageVector = if (isClickable) Icons.Default.PlayCircle else Icons.Default.List,
+            contentDescription = if (isClickable) "Play from chapter" else null,
+            modifier = Modifier.size(20.dp),
+            tint = if (isClickable) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
         )
 
         Text(

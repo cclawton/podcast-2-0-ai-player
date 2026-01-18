@@ -62,6 +62,10 @@ class EpisodesViewModel @Inject constructor(
 
     val playbackState: StateFlow<PlaybackState> = playbackController.playbackState
 
+    val autoDownloadEnabled: StateFlow<Boolean> = _podcast
+        .map { it?.autoDownload ?: false }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     init {
         loadPodcast()
     }
@@ -124,5 +128,15 @@ class EpisodesViewModel @Inject constructor(
 
     fun clearError() {
         _error.value = null
+    }
+
+    fun toggleAutoDownload() {
+        viewModelScope.launch {
+            val current = _podcast.value ?: return@launch
+            val newValue = !current.autoDownload
+            podcastDao.updateAutoDownload(podcastId, newValue)
+            // Reload podcast to update state
+            _podcast.value = podcastDao.getPodcastById(podcastId)
+        }
     }
 }

@@ -60,4 +60,10 @@ interface PodcastDao {
 
     @Query("DELETE FROM podcasts WHERE is_subscribed = 0 AND updated_at < :beforeTimestamp")
     suspend fun deleteOldUnsubscribedPodcasts(beforeTimestamp: Long)
+
+    @Query("UPDATE podcasts SET auto_download = :enabled, updated_at = :timestamp WHERE id = :podcastId")
+    suspend fun updateAutoDownload(podcastId: Long, enabled: Boolean, timestamp: Long = System.currentTimeMillis())
+
+    @Query("SELECT * FROM podcasts WHERE auto_download = 1 AND is_subscribed = 1")
+    fun getPodcastsWithAutoDownload(): Flow<List<Podcast>>
 }

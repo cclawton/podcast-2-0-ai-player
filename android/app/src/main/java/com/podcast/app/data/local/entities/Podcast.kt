@@ -70,5 +70,24 @@ data class Podcast(
     val createdAt: Long = System.currentTimeMillis(),
 
     @ColumnInfo(name = "updated_at")
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "auto_download")
+    val autoDownload: Boolean = false,
+
+    // Podcast 2.0 Value4Value / Funding
+    @ColumnInfo(name = "funding_url")
+    val fundingUrl: String? = null,
+
+    @ColumnInfo(name = "funding_message")
+    val fundingMessage: String? = null,
+
+    @ColumnInfo(name = "value_model")
+    val valueModel: String? = null,
+
+    @ColumnInfo(name = "value_type")
+    val valueType: String? = null,
+
+    @ColumnInfo(name = "value_recipients_json")
+    val valueRecipientsJson: String? = null
 )

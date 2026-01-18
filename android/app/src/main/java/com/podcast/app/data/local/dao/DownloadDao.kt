@@ -74,4 +74,10 @@ interface DownloadDao {
         WHERE e.podcast_id = :podcastId
     """)
     fun getDownloadsForPodcastFlow(podcastId: Long): Flow<List<Download>>
+
+    @Query("SELECT * FROM downloads WHERE status = 'COMPLETED' AND downloaded_at < :timestamp")
+    suspend fun getDownloadsOlderThan(timestamp: Long): List<Download>
+
+    @Query("SELECT * FROM downloads WHERE status = 'COMPLETED'")
+    suspend fun getAllCompletedDownloads(): List<Download>
 }

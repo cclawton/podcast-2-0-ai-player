@@ -3,8 +3,10 @@ package com.podcast.app.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -16,11 +18,14 @@ import com.podcast.app.ui.screens.diagnostics.DiagnosticsScreen
 import com.podcast.app.ui.screens.downloads.DownloadsScreen
 import com.podcast.app.ui.screens.episodes.EpisodesScreen
 import com.podcast.app.ui.screens.library.LibraryScreen
+import com.podcast.app.ui.navigation.NavHostViewModel
+import com.podcast.app.ui.screens.onboarding.OnboardingScreen
 import com.podcast.app.ui.screens.player.PlayerScreen
 import com.podcast.app.ui.screens.search.SearchScreen
 import com.podcast.app.ui.screens.settings.SettingsScreen
 
 sealed class Screen(val route: String) {
+    data object Onboarding : Screen("onboarding")
     data object Library : Screen("library")
     data object Search : Screen("search")
     data object Player : Screen("player")
@@ -33,12 +38,24 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun PodcastNavHost() {
+fun PodcastNavHost(
+    viewModel: NavHostViewModel = hiltViewModel()
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Show bottom nav only on main screens
+    // Check onboarding status
+    val isOnboardingCompleted by viewModel.isOnboardingCompleted.collectAsState(initial = true)
+
+    // Determine start destination based on onboarding status
+    val startDestination = if (isOnboardingCompleted) {
+        Screen.Library.route
+    } else {
+        Screen.Onboarding.route
+    }
+
+    // Show bottom nav only on main screens (not onboarding)
     val showBottomNav = currentRoute in listOf(
         Screen.Library.route,
         Screen.Search.route,
@@ -66,9 +83,13 @@ fun PodcastNavHost() {
     ) { paddingValues ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Library.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable(Screen.Onboarding.route) {
+                OnboardingScreen(navController = navController)
+            }
+
             composable(Screen.Library.route) {
                 LibraryScreen(navController = navController)
             }
