@@ -5,9 +5,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.podcast.app.data.local.dao.DownloadDao
 import com.podcast.app.data.local.dao.EpisodeDao
 import com.podcast.app.data.local.dao.PlaybackProgressDao
 import com.podcast.app.data.local.dao.PodcastDao
+import com.podcast.app.data.local.entities.DownloadStatus
 import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.data.local.entities.PlaybackProgress
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,6 +22,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -32,13 +36,15 @@ import javax.inject.Singleton
  * - Progress tracking and persistence
  * - Chapter support
  * - Queue management
+ * - Offline playback from downloaded files
  */
 @Singleton
 class PlaybackController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val episodeDao: EpisodeDao,
     private val podcastDao: PodcastDao,
-    private val playbackProgressDao: PlaybackProgressDao
+    private val playbackProgressDao: PlaybackProgressDao,
+    private val downloadDao: DownloadDao
 ) : IPlaybackController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -100,15 +106,21 @@ class PlaybackController @Inject constructor(
 
     /**
      * Play a specific episode.
+     *
+     * If the episode has been downloaded, plays from local storage (works offline).
+     * Otherwise, streams from the network URL.
      */
     override suspend fun playEpisode(episodeId: Long, startPositionMs: Int) {
         val episode = episodeDao.getEpisodeById(episodeId) ?: return
 
         _currentEpisode.value = episode
 
+        // Check for completed download to enable offline playback
+        val audioUri = getPlayableUri(episodeId, episode.audioUrl)
+
         val mediaItem = MediaItem.Builder()
             .setMediaId(episode.id.toString())
-            .setUri(episode.audioUrl)
+            .setUri(audioUri)
             .build()
 
         exoPlayer.apply {
@@ -135,6 +147,43 @@ class PlaybackController @Inject constructor(
         }
 
         startProgressTracking()
+    }
+
+    /**
+     * Gets the playable URI for an episode.
+     *
+     * Returns the local file path if a completed download exists and the file is accessible,
+     * otherwise returns the network audio URL.
+     *
+     * @param episodeId The episode ID to check for downloads
+     * @param fallbackUrl The network URL to use if no download is available
+     * @return A file:// URI for local playback or the network URL
+     */
+    private suspend fun getPlayableUri(episodeId: Long, fallbackUrl: String): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                val download = downloadDao.getDownload(episodeId)
+                if (download != null &&
+                    download.status == DownloadStatus.COMPLETED &&
+                    download.filePath.isNotBlank()
+                ) {
+                    val file = File(download.filePath)
+                    if (file.exists() && file.canRead()) {
+                        // Use local file for offline playback
+                        "file://${file.absolutePath}"
+                    } else {
+                        // File missing or unreadable, fall back to network
+                        fallbackUrl
+                    }
+                } else {
+                    // No completed download, use network URL
+                    fallbackUrl
+                }
+            } catch (e: Exception) {
+                // On any error, fall back to network URL
+                fallbackUrl
+            }
+        }
     }
 
     /**
