@@ -83,6 +83,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- WorkManager SystemForegroundService - declare foreground service type for Android 14+ -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
         <!-- Disable default WorkManager initialization - using HiltWorkerFactory instead -->
         <provider
             android:name="androidx.startup.InitializationProvider"
