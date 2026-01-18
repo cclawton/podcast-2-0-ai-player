@@ -1,6 +1,8 @@
 package com.podcast.app.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,15 +14,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Downloading
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.podcast.app.data.local.entities.DownloadStatus
 import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.util.TextUtils
 import java.text.SimpleDateFormat
@@ -39,6 +46,8 @@ fun EpisodeItem(
     episode: Episode,
     progress: Float = 0f,
     isDownloaded: Boolean = false,
+    downloadStatus: DownloadStatus? = null,
+    downloadProgress: Float = 0f,
     fallbackImageUrl: String? = null,
     onPlayClick: () -> Unit,
     onDownloadClick: () -> Unit,
@@ -48,6 +57,14 @@ fun EpisodeItem(
     // Use episode image, or fall back to podcast/feed image
     // Handle both null and empty string cases
     val displayImageUrl = episode.imageUrl?.takeIf { it.isNotBlank() } ?: fallbackImageUrl
+
+    // For backwards compatibility: derive status from isDownloaded if downloadStatus not provided
+    val effectiveStatus = downloadStatus ?: if (isDownloaded) DownloadStatus.COMPLETED else null
+    val animatedDownloadProgress by animateFloatAsState(
+        targetValue = downloadProgress,
+        label = "download_progress"
+    )
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -107,15 +124,22 @@ fun EpisodeItem(
                 }
 
                 IconButton(onClick = onDownloadClick) {
-                    Icon(
-                        imageVector = if (isDownloaded) Icons.Default.Delete else Icons.Default.Download,
-                        contentDescription = if (isDownloaded) "Delete download" else "Download",
-                        tint = if (isDownloaded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    DownloadStatusIcon(status = effectiveStatus)
                 }
             }
 
-            if (progress > 0f && progress < 1f) {
+            // Show download progress bar when downloading
+            if (effectiveStatus == DownloadStatus.IN_PROGRESS || effectiveStatus == DownloadStatus.PENDING) {
+                LinearProgressIndicator(
+                    progress = { if (effectiveStatus == DownloadStatus.IN_PROGRESS) animatedDownloadProgress else 0f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
+            }
+
+            // Show playback progress bar when partially played
+            if (progress > 0f && progress < 1f && effectiveStatus != DownloadStatus.IN_PROGRESS) {
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
@@ -150,5 +174,48 @@ private fun formatDuration(seconds: Int): String {
         "${hours}h ${minutes}m"
     } else {
         "${minutes}m"
+    }
+}
+
+@Composable
+private fun DownloadStatusIcon(status: DownloadStatus?) {
+    when (status) {
+        DownloadStatus.PENDING -> {
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        DownloadStatus.IN_PROGRESS -> {
+            Icon(
+                imageVector = Icons.Default.Downloading,
+                contentDescription = "Downloading",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        DownloadStatus.COMPLETED -> {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Delete download",
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+        DownloadStatus.FAILED -> {
+            Icon(
+                imageVector = Icons.Default.Error,
+                contentDescription = "Download failed - tap to retry",
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+        DownloadStatus.CANCELLED, null -> {
+            Icon(
+                imageVector = Icons.Default.Download,
+                contentDescription = "Download",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
