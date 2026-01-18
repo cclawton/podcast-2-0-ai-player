@@ -161,10 +161,18 @@ fun EpisodesScreen(
                             } else 0f
                         } ?: 0f
 
+                        // Calculate download status and progress for UI display
+                        val downloadStatus = download?.status
+                        val downloadProgress = if (download != null && download.fileSize != null && download.fileSize > 0) {
+                            download.downloadedBytes.toFloat() / download.fileSize.toFloat()
+                        } else 0f
+
                         EpisodeItem(
                             episode = episode,
                             progress = progressPercent,
                             isDownloaded = download?.status == DownloadStatus.COMPLETED,
+                            downloadStatus = downloadStatus,
+                            downloadProgress = downloadProgress,
                             fallbackImageUrl = podcast?.imageUrl?.takeIf { it.isNotBlank() },
                             onPlayClick = { viewModel.playEpisode(episode.id) },
                             onDownloadClick = { viewModel.downloadEpisode(episode) },
