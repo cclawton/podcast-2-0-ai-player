@@ -256,6 +256,13 @@ class PodcastRepository @Inject constructor(
     }
 
     /**
+     * Get episode by ID.
+     */
+    suspend fun getEpisodeById(episodeId: Long): Episode? {
+        return episodeDao.getEpisodeById(episodeId)
+    }
+
+    /**
      * Get trending podcasts.
      */
     suspend fun getTrendingPodcasts(limit: Int = 20): Result<List<Podcast>> {

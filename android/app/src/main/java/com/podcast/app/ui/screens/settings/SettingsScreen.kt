@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -149,6 +150,12 @@ fun SettingsScreen(
 
             // Download settings
             SectionHeader("Downloads")
+            NavigationItem(
+                title = "Download Manager",
+                description = "View and manage downloaded episodes",
+                icon = Icons.Filled.Download,
+                onClick = { navController.navigate(Screen.Downloads.route) }
+            )
             SettingSwitch(
                 title = "Wi-Fi Only Downloads",
                 description = "Only auto-download on Wi-Fi",

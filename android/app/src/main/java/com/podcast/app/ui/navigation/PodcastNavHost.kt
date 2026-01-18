@@ -13,6 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.podcast.app.ui.components.BottomNavBar
 import com.podcast.app.ui.screens.diagnostics.DiagnosticsScreen
+import com.podcast.app.ui.screens.downloads.DownloadsScreen
 import com.podcast.app.ui.screens.episodes.EpisodesScreen
 import com.podcast.app.ui.screens.library.LibraryScreen
 import com.podcast.app.ui.screens.player.PlayerScreen
@@ -28,6 +29,7 @@ sealed class Screen(val route: String) {
     }
     data object Settings : Screen("settings")
     data object Diagnostics : Screen("diagnostics")
+    data object Downloads : Screen("downloads")
 }
 
 @Composable
@@ -98,6 +100,10 @@ fun PodcastNavHost() {
 
             composable(Screen.Diagnostics.route) {
                 DiagnosticsScreen(navController = navController)
+            }
+
+            composable(Screen.Downloads.route) {
+                DownloadsScreen(navController = navController)
             }
         }
     }

@@ -278,6 +278,24 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("Only auto-download on Wi-Fi").assertIsDisplayed()
     }
 
+    @Test
+    fun settingsScreen_showsDownloadManagerItem() {
+        composeRule.onNodeWithText("Downloads").performScrollTo()
+        composeRule.onNodeWithText("Download Manager").assertIsDisplayed()
+        composeRule.onNodeWithText("View and manage downloaded episodes").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_downloadManagerItem_navigatesToDownloads() {
+        composeRule.onNodeWithText("Downloads").performScrollTo()
+        composeRule.onNodeWithText("Download Manager").performClick()
+        composeRule.waitForIdle()
+
+        // Should navigate to Downloads screen
+        composeRule.waitUntilNodeWithTagExists(TestTags.DOWNLOADS_SCREEN)
+        composeRule.onNodeWithTag(TestTags.DOWNLOADS_SCREEN).assertIsDisplayed()
+    }
+
     // ================================
     // Data Storage Settings Tests
     // ================================

@@ -38,7 +38,7 @@ class LibraryViewModel @Inject constructor(
     val recentEpisodes: StateFlow<List<Episode>> = repository.getRecentEpisodes(20)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val downloads: StateFlow<Map<Long, Download>> = downloadDao.getCompletedDownloads()
+    val downloads: StateFlow<Map<Long, Download>> = downloadDao.getAllDownloadsFlow()
         .map { list -> list.associateBy { it.episodeId } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
@@ -80,6 +80,80 @@ class LibraryViewModel @Inject constructor(
     fun skipNext() {
         viewModelScope.launch {
             playbackController.playNext()
+        }
+    }
+
+    fun downloadEpisode(episode: Episode) {
+        viewModelScope.launch {
+            val existingDownload = downloadDao.getDownload(episode.id)
+            when (existingDownload?.status) {
+                DownloadStatus.COMPLETED -> {
+                    // Delete the download
+                    downloadDao.deleteByEpisodeId(episode.id)
+                    // TODO: Also delete the actual file
+                }
+                DownloadStatus.IN_PROGRESS, DownloadStatus.PENDING -> {
+                    // Cancel the download
+                    downloadDao.updateDownloadStatus(episode.id, DownloadStatus.CANCELLED)
+                }
+                DownloadStatus.FAILED, DownloadStatus.CANCELLED, null -> {
+                    // Start a new download
+                    val download = Download(
+                        episodeId = episode.id,
+                        filePath = getDownloadPath(episode),
+                        status = DownloadStatus.PENDING
+                    )
+                    downloadDao.insert(download)
+                    // TODO: Trigger actual download via DownloadManager
+                    startDownload(episode.id)
+                }
+            }
+        }
+    }
+
+    private fun getDownloadPath(episode: Episode): String {
+        return "downloads/${episode.podcastId}/${episode.id}.mp3"
+    }
+
+    private suspend fun startDownload(episodeId: Long) {
+        // Update status to IN_PROGRESS to show visual feedback
+        downloadDao.updateDownloadStatus(episodeId, DownloadStatus.IN_PROGRESS)
+
+        // Simulate download progress for now
+        // TODO: Replace with actual download implementation using WorkManager
+        viewModelScope.launch {
+            try {
+                // Get episode info for size estimation
+                val episode = repository.getEpisodeById(episodeId)
+                val estimatedSize = 50_000_000L // 50MB estimate
+
+                // Update with estimated file size
+                downloadDao.updateDownloadProgress(
+                    episodeId = episodeId,
+                    status = DownloadStatus.IN_PROGRESS,
+                    downloadedBytes = 0
+                )
+
+                // Simulate progress updates
+                for (progress in 1..10) {
+                    kotlinx.coroutines.delay(500)
+                    val downloadedBytes = (estimatedSize * progress / 10)
+                    downloadDao.updateDownloadProgress(
+                        episodeId = episodeId,
+                        status = DownloadStatus.IN_PROGRESS,
+                        downloadedBytes = downloadedBytes
+                    )
+                }
+
+                // Mark as completed
+                downloadDao.updateDownloadProgress(
+                    episodeId = episodeId,
+                    status = DownloadStatus.COMPLETED,
+                    downloadedBytes = estimatedSize
+                )
+            } catch (e: Exception) {
+                downloadDao.updateDownloadStatus(episodeId, DownloadStatus.FAILED, e.message)
+            }
         }
     }
 }

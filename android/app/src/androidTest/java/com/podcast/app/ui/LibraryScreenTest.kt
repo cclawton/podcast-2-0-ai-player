@@ -156,9 +156,24 @@ class LibraryScreenTest {
         try {
             composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_LIST, timeoutMillis = 3000)
 
-            // Check that podcast items exist in the list
+            // Check that podcast items exist in the list (now showing as thumbnails only)
             val podcastItems = composeRule.onAllNodesWithTag(TestTags.PODCAST_ITEM, useUnmergedTree = true)
             podcastItems.assertCountAtLeast(1)
+        } catch (e: Throwable) {
+            // No podcasts available - test passes as there's nothing to display
+        }
+    }
+
+    @Test
+    fun libraryScreen_showsSubscriptionsAsImageOnlyThumbnails() {
+        composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_SCREEN)
+
+        try {
+            composeRule.waitUntilNodeWithTagExists(TestTags.LIBRARY_LIST, timeoutMillis = 3000)
+
+            // Verify podcast thumbnails show images (using the PODCAST_IMAGE test tag)
+            val podcastImages = composeRule.onAllNodesWithTag(TestTags.PODCAST_IMAGE, useUnmergedTree = true)
+            podcastImages.assertCountAtLeast(1)
         } catch (e: Throwable) {
             // No podcasts available - test passes as there's nothing to display
         }

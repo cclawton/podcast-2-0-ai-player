@@ -33,6 +33,9 @@ interface DownloadDao {
     @Query("SELECT * FROM downloads WHERE status = 'COMPLETED' ORDER BY downloaded_at DESC")
     fun getCompletedDownloads(): Flow<List<Download>>
 
+    @Query("SELECT * FROM downloads ORDER BY created_at DESC")
+    fun getAllDownloadsFlow(): Flow<List<Download>>
+
     @Query("SELECT * FROM downloads WHERE status = 'PENDING' OR status = 'IN_PROGRESS' ORDER BY created_at ASC")
     fun getPendingDownloads(): Flow<List<Download>>
 

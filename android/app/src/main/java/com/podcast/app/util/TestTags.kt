@@ -68,6 +68,16 @@ object TestTags {
     const val PRIVACY_TOGGLE = "privacy_toggle"
     const val OFFLINE_MODE_TOGGLE = "offline_mode_toggle"
 
+    // Downloads Screen
+    const val DOWNLOADS_SCREEN = "downloads_screen"
+    const val DOWNLOADS_LIST = "downloads_list"
+    const val DOWNLOAD_ITEM = "download_item"
+    const val DOWNLOAD_PROGRESS = "download_progress"
+    const val DOWNLOAD_CANCEL = "download_cancel"
+    const val DOWNLOAD_DELETE = "download_delete"
+    const val DOWNLOAD_RETRY = "download_retry"
+    const val CLEAR_DOWNLOADS_BUTTON = "clear_downloads_button"
+
     // General
     const val LOADING_INDICATOR = "loading_indicator"
     const val ERROR_MESSAGE = "error_message"
