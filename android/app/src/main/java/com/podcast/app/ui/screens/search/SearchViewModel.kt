@@ -52,6 +52,13 @@ class SearchViewModel @Inject constructor(
     private val _rssSubscriptionSuccess = MutableStateFlow<Podcast?>(null)
     val rssSubscriptionSuccess: StateFlow<Podcast?> = _rssSubscriptionSuccess.asStateFlow()
 
+    // Subscription confirmation dialog state
+    private val _showSubscribeConfirmation = MutableStateFlow(false)
+    val showSubscribeConfirmation: StateFlow<Boolean> = _showSubscribeConfirmation.asStateFlow()
+
+    private val _selectedPodcast = MutableStateFlow<Podcast?>(null)
+    val selectedPodcast: StateFlow<Podcast?> = _selectedPodcast.asStateFlow()
+
     val canSearch: StateFlow<Boolean> = privacyManager.canUseNetwork
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -153,6 +160,27 @@ class SearchViewModel @Inject constructor(
 
     fun clearError() {
         _error.value = null
+    }
+
+    // ================================
+    // Subscription Confirmation Dialog
+    // ================================
+
+    fun showSubscribeConfirmation(podcast: Podcast) {
+        _selectedPodcast.value = podcast
+        _showSubscribeConfirmation.value = true
+    }
+
+    fun hideSubscribeConfirmation() {
+        _showSubscribeConfirmation.value = false
+        _selectedPodcast.value = null
+    }
+
+    fun confirmSubscription() {
+        _selectedPodcast.value?.let { podcast ->
+            subscribeToPodcast(podcast.podcastIndexId)
+            hideSubscribeConfirmation()
+        }
     }
 
     // ================================

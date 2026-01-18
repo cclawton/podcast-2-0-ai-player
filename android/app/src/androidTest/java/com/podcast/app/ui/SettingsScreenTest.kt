@@ -332,23 +332,11 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun settingsScreen_showsInternetPermission() {
-        // Scroll to Permissions section first to bring permission items into view
-        composeRule.onNodeWithText("Permissions").performScrollTo()
-        composeRule.waitForIdle()
-        // Verify Internet permission exists (may need to scroll further)
-        val internetNodes = composeRule.onAllNodesWithText("Internet", substring = true).fetchSemanticsNodes()
-        assert(internetNodes.isNotEmpty()) { "Expected Internet permission to be displayed" }
-        val offlineNodes = composeRule.onAllNodesWithText("Optional - app works offline", substring = true).fetchSemanticsNodes()
-        assert(offlineNodes.isNotEmpty()) { "Expected offline description to be displayed" }
-    }
-
-    @Test
     fun settingsScreen_showsMicrophonePermission() {
         // Scroll to Permissions section first to bring permission items into view
         composeRule.onNodeWithText("Permissions").performScrollTo()
         composeRule.waitForIdle()
-        // Verify Microphone permission exists
+        // Verify Microphone permission exists (this is a runtime permission users can change)
         val micNodes = composeRule.onAllNodesWithText("Microphone", substring = true).fetchSemanticsNodes()
         assert(micNodes.isNotEmpty()) { "Expected Microphone permission to be displayed" }
         val voiceNodes = composeRule.onAllNodesWithText("For voice commands", substring = true).fetchSemanticsNodes()
@@ -356,15 +344,29 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun settingsScreen_showsForegroundServicePermission() {
-        // Scroll to Permissions section first to bring permission items into view
+    fun settingsScreen_showsNotificationsPermission_onAndroid13Plus() {
+        // POST_NOTIFICATIONS is a runtime permission on Android 13+ (API 33+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            composeRule.onNodeWithText("Permissions").performScrollTo()
+            composeRule.waitForIdle()
+            val notifNodes = composeRule.onAllNodesWithText("Notifications", substring = true).fetchSemanticsNodes()
+            assert(notifNodes.isNotEmpty()) { "Expected Notifications permission on Android 13+" }
+        }
+    }
+
+    @Test
+    fun settingsScreen_doesNotShowNonRuntimePermissions() {
+        // Internet and Foreground Service are NOT runtime permissions - they should not be shown
         composeRule.onNodeWithText("Permissions").performScrollTo()
         composeRule.waitForIdle()
-        // Verify Foreground Service permission exists
-        val fgNodes = composeRule.onAllNodesWithText("Foreground Service", substring = true).fetchSemanticsNodes()
-        assert(fgNodes.isNotEmpty()) { "Expected Foreground Service permission to be displayed" }
-        val bgNodes = composeRule.onAllNodesWithText("Background playback", substring = true).fetchSemanticsNodes()
-        assert(bgNodes.isNotEmpty()) { "Expected background playback description to be displayed" }
+
+        // Verify Internet permission is NOT displayed (it's not a runtime permission)
+        val internetNodes = composeRule.onAllNodesWithText("Optional - app works offline", substring = true).fetchSemanticsNodes()
+        assert(internetNodes.isEmpty()) { "Internet permission should not be displayed (not a runtime permission)" }
+
+        // Verify Foreground Service permission is NOT displayed (it's not a runtime permission)
+        val fgNodes = composeRule.onAllNodesWithText("Background playback", substring = true).fetchSemanticsNodes()
+        assert(fgNodes.isEmpty()) { "Foreground Service permission should not be displayed (not a runtime permission)" }
     }
 
     @Test

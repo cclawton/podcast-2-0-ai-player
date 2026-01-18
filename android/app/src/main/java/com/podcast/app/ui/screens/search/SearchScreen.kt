@@ -3,9 +3,15 @@ package com.podcast.app.ui.screens.search
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -35,8 +41,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -64,6 +74,8 @@ fun SearchScreen(
     val showRssDialog by viewModel.showRssDialog.collectAsState()
     val rssUrl by viewModel.rssUrl.collectAsState()
     val rssSubscriptionSuccess by viewModel.rssSubscriptionSuccess.collectAsState()
+    val showSubscribeConfirmation by viewModel.showSubscribeConfirmation.collectAsState()
+    val selectedPodcast by viewModel.selectedPodcast.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -90,6 +102,18 @@ fun SearchScreen(
             onDismiss = viewModel::hideRssDialog,
             onConfirm = viewModel::subscribeFromRss,
             isLoading = isLoading
+        )
+    }
+
+    // Subscription Confirmation Dialog
+    if (showSubscribeConfirmation && selectedPodcast != null) {
+        SubscribeConfirmationDialog(
+            podcast = selectedPodcast!!,
+            onConfirm = {
+                viewModel.confirmSubscription()
+                navController.navigate(Screen.Episodes.createRoute(selectedPodcast!!.id))
+            },
+            onDismiss = viewModel::hideSubscribeConfirmation
         )
     }
 
@@ -173,8 +197,8 @@ fun SearchScreen(
                             PodcastCard(
                                 podcast = podcast,
                                 onClick = {
-                                    viewModel.subscribeToPodcast(podcast.podcastIndexId)
-                                    navController.navigate(Screen.Episodes.createRoute(podcast.id))
+                                    // Show confirmation dialog before subscribing
+                                    viewModel.showSubscribeConfirmation(podcast)
                                 }
                             )
                         }
@@ -199,7 +223,8 @@ fun SearchScreen(
                             PodcastCard(
                                 podcast = podcast,
                                 onClick = {
-                                    viewModel.subscribeToPodcast(podcast.podcastIndexId)
+                                    // Show confirmation dialog before subscribing
+                                    viewModel.showSubscribeConfirmation(podcast)
                                 }
                             )
                         }
@@ -279,5 +304,80 @@ private fun RssFeedDialog(
             }
         },
         modifier = Modifier.testTag(TestTags.RSS_DIALOG)
+    )
+}
+
+/**
+ * Confirmation dialog shown before subscribing to a podcast.
+ */
+@Composable
+private fun SubscribeConfirmationDialog(
+    podcast: com.podcast.app.data.local.entities.Podcast,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Subscribe to Podcast?",
+                modifier = Modifier.testTag(TestTags.SUBSCRIBE_CONFIRMATION_TITLE)
+            )
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Podcast artwork
+                podcast.imageUrl?.let { imageUrl ->
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = podcast.title,
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .testTag(TestTags.SUBSCRIBE_CONFIRMATION_IMAGE),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Podcast name
+                Text(
+                    text = podcast.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.testTag(TestTags.SUBSCRIBE_CONFIRMATION_NAME)
+                )
+
+                // Podcast description preview
+                podcast.description?.let { desc ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = desc.take(150) + if (desc.length > 150) "..." else "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag(TestTags.SUBSCRIBE_CONFIRMATION_DESCRIPTION)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                modifier = Modifier.testTag(TestTags.SUBSCRIBE_CONFIRM_BUTTON)
+            ) {
+                Text("Subscribe")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(TestTags.SUBSCRIBE_CANCEL_BUTTON)
+            ) {
+                Text("Cancel")
+            }
+        },
+        modifier = Modifier.testTag(TestTags.SUBSCRIBE_CONFIRMATION_DIALOG)
     )
 }

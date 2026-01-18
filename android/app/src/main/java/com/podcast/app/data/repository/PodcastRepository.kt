@@ -52,15 +52,40 @@ class PodcastRepository @Inject constructor(
 
     /**
      * Search for podcasts via API.
+     *
+     * Uses a combined search strategy for better relevance:
+     * 1. First searches by title to find exact/close title matches
+     * 2. Then searches by term to find broader matches
+     * 3. Combines results with title matches prioritized first
+     *
+     * This ensures that searching for "No Agenda" returns the actual
+     * "No Agenda" podcast first, rather than other podcasts that just
+     * mention it in their description.
      */
     suspend fun searchPodcasts(query: String, limit: Int = 20): Result<List<Podcast>> {
         DiagnosticLogger.i(TAG, "searchPodcasts: query='$query', limit=$limit")
 
         return try {
+            // Search by title first for most relevant results
+            DiagnosticLogger.d(TAG, "Calling API searchByTitle...")
+            val titleResponse = api.searchByTitle(query, limit)
+            val titlePodcasts = titleResponse.feeds.map { it.toPodcast() }
+            DiagnosticLogger.d(TAG, "Title search returned ${titlePodcasts.size} results")
+
+            // Collect IDs from title search to avoid duplicates
+            val titleIds = titlePodcasts.map { it.podcastIndexId }.toSet()
+
+            // Search by term for broader matches
             DiagnosticLogger.d(TAG, "Calling API searchByTerm...")
-            val response = api.searchByTerm(query, limit)
-            val podcasts = response.feeds.map { it.toPodcast() }
-            DiagnosticLogger.i(TAG, "Search returned ${podcasts.size} results")
+            val termResponse = api.searchByTerm(query, limit)
+            val termPodcasts = termResponse.feeds
+                .map { it.toPodcast() }
+                .filter { it.podcastIndexId !in titleIds } // Remove duplicates
+            DiagnosticLogger.d(TAG, "Term search returned ${termPodcasts.size} unique results")
+
+            // Combine: title matches first, then term matches
+            val podcasts = (titlePodcasts + termPodcasts).take(limit)
+            DiagnosticLogger.i(TAG, "Combined search returned ${podcasts.size} results")
 
             // Cache results locally
             podcastDao.insertPodcasts(podcasts)
@@ -328,7 +353,8 @@ class PodcastRepository @Inject constructor(
             audioDuration = duration,
             audioSize = enclosureLength,
             audioType = enclosureType ?: "audio/mpeg",
-            publishedAt = datePublished,
+            // Podcast Index API returns Unix timestamps in seconds; convert to milliseconds
+            publishedAt = datePublished?.let { it * 1000L },
             episodeGuid = guid,
             explicit = explicit == 1,
             link = link,

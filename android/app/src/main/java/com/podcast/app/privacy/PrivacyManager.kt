@@ -35,7 +35,7 @@ class PrivacyManager @Inject constructor(
     private val privacyRepository: PrivacyRepository,
     private val networkStateMonitor: NetworkStateMonitor
 ) {
-    private val _permissionState = MutableStateFlow(PermissionState())
+    private val _permissionState = MutableStateFlow(checkPermissions())
     val permissionState: StateFlow<PermissionState> = _permissionState.asStateFlow()
 
     /**
@@ -89,14 +89,37 @@ class PrivacyManager @Inject constructor(
     }
 
     /**
+     * Check if POST_NOTIFICATIONS permission is granted.
+     * This is a runtime permission on Android 13+ (API 33+).
+     */
+    fun hasPostNotificationsPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true // Not required before Android 13
+        }
+    }
+
+    /**
+     * Check all permissions and return current state.
+     */
+    private fun checkPermissions(): PermissionState {
+        return PermissionState(
+            hasInternet = hasInternetPermission(),
+            hasRecordAudio = hasRecordAudioPermission(),
+            hasForegroundService = hasForegroundServicePermission(),
+            hasPostNotifications = hasPostNotificationsPermission()
+        )
+    }
+
+    /**
      * Refresh permission state. Call after permission changes.
      */
     fun refreshPermissions() {
-        _permissionState.value = PermissionState(
-            hasInternet = hasInternetPermission(),
-            hasRecordAudio = hasRecordAudioPermission(),
-            hasForegroundService = hasForegroundServicePermission()
-        )
+        _permissionState.value = checkPermissions()
     }
 
     /**
@@ -251,11 +274,13 @@ class PrivacyManager @Inject constructor(
 data class PermissionState(
     val hasInternet: Boolean = false,
     val hasRecordAudio: Boolean = false,
-    val hasForegroundService: Boolean = false
+    val hasForegroundService: Boolean = false,
+    val hasPostNotifications: Boolean = false
 ) {
     val canPlayAudio: Boolean get() = hasForegroundService
     val canUseVoice: Boolean get() = hasRecordAudio
     val canUseNetwork: Boolean get() = hasInternet
+    val canShowNotifications: Boolean get() = hasPostNotifications
 }
 
 /**
