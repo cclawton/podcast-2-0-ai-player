@@ -7,6 +7,7 @@ import com.podcast.app.data.local.dao.EpisodeDao
 import com.podcast.app.data.local.entities.Download
 import com.podcast.app.data.local.entities.DownloadStatus
 import com.podcast.app.data.local.entities.Episode
+import com.podcast.app.download.DownloadManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -33,7 +34,8 @@ data class DownloadsUiState(
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
     private val downloadDao: DownloadDao,
-    private val episodeDao: EpisodeDao
+    private val episodeDao: EpisodeDao,
+    private val downloadManager: DownloadManager
 ) : ViewModel() {
 
     private val _isClearing = MutableStateFlow(false)
@@ -80,35 +82,41 @@ class DownloadsViewModel @Inject constructor(
         DownloadsUiState()
     )
 
+    /**
+     * Cancel a pending or in-progress download.
+     */
     fun cancelDownload(episodeId: Long) {
         viewModelScope.launch {
-            downloadDao.updateDownloadStatus(episodeId, DownloadStatus.CANCELLED)
+            downloadManager.cancelDownload(episodeId)
         }
     }
 
+    /**
+     * Retry a failed download.
+     */
     fun retryDownload(episodeId: Long) {
         viewModelScope.launch {
-            downloadDao.updateDownloadStatus(episodeId, DownloadStatus.PENDING)
-            // TODO: Re-trigger download
+            downloadManager.retryDownload(episodeId)
         }
     }
 
+    /**
+     * Delete a completed download, including the actual file.
+     */
     fun deleteDownload(episodeId: Long) {
         viewModelScope.launch {
-            downloadDao.deleteByEpisodeId(episodeId)
-            // TODO: Also delete the actual file
+            downloadManager.deleteDownload(episodeId)
         }
     }
 
+    /**
+     * Clear all downloads, including their files.
+     */
     fun clearAllDownloads() {
         viewModelScope.launch {
             _isClearing.value = true
             try {
-                val allDownloads = uiState.value.completedDownloads + uiState.value.activeDownloads
-                allDownloads.forEach { downloadWithEpisode ->
-                    downloadDao.deleteByEpisodeId(downloadWithEpisode.download.episodeId)
-                    // TODO: Delete actual files
-                }
+                downloadManager.clearAllDownloads()
             } finally {
                 _isClearing.value = false
             }

@@ -46,8 +46,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.podcast.app.data.local.entities.DownloadStatus
+import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.ui.Screen
 import com.podcast.app.ui.components.EmptyState
+import com.podcast.app.ui.components.EpisodeInfoBottomSheet
 import com.podcast.app.ui.components.EpisodeItem
 import com.podcast.app.ui.components.MiniPlayer
 import com.podcast.app.util.TextUtils
@@ -70,6 +72,7 @@ fun EpisodesScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showMenu by remember { mutableStateOf(false) }
+    var selectedEpisodeForInfo by remember { mutableStateOf<Episode?>(null) }
 
     LaunchedEffect(error) {
         error?.let {
@@ -165,12 +168,23 @@ fun EpisodesScreen(
                             fallbackImageUrl = podcast?.imageUrl?.takeIf { it.isNotBlank() },
                             onPlayClick = { viewModel.playEpisode(episode.id) },
                             onDownloadClick = { viewModel.downloadEpisode(episode) },
+                            onInfoClick = { selectedEpisodeForInfo = episode },
                             onClick = { viewModel.playEpisode(episode.id) },
                             modifier = Modifier.testTag("episode_item")
                         )
                     }
                 }
             }
+        }
+
+        // Episode info bottom sheet
+        selectedEpisodeForInfo?.let { episode ->
+            EpisodeInfoBottomSheet(
+                episode = episode,
+                podcastTitle = podcast?.title,
+                fallbackImageUrl = podcast?.imageUrl?.takeIf { it.isNotBlank() },
+                onDismiss = { selectedEpisodeForInfo = null }
+            )
         }
     }
 }

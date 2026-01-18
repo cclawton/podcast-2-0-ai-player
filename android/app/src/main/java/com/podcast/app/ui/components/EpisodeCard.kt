@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Downloading
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,9 +36,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import coil.compose.AsyncImage
 import com.podcast.app.data.local.entities.DownloadStatus
 import com.podcast.app.data.local.entities.Episode
+import com.podcast.app.util.TestTags
 import com.podcast.app.util.TextUtils
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -55,6 +58,7 @@ fun EpisodeCard(
     fallbackImageUrl: String? = null,
     onPlayClick: () -> Unit,
     onDownloadClick: () -> Unit,
+    onInfoClick: (() -> Unit)? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -175,6 +179,21 @@ fun EpisodeCard(
                     )
                 }
 
+                // Info button
+                onInfoClick?.let { infoClick ->
+                    IconButton(
+                        onClick = infoClick,
+                        modifier = Modifier.testTag(TestTags.EPISODE_INFO_BUTTON)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Episode info",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
                 // Download/Delete button with status indicator
                 IconButton(onClick = onDownloadClick) {
                     DownloadStatusIcon(downloadStatus)
@@ -233,7 +252,8 @@ private fun DownloadStatusIcon(status: DownloadStatus?) {
 
 private fun formatDate(timestamp: Long): String {
     val sdf = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-    return sdf.format(Date(timestamp * 1000))
+    // Timestamps are stored in milliseconds; no conversion needed
+    return sdf.format(Date(timestamp))
 }
 
 private fun formatDuration(seconds: Int): String {

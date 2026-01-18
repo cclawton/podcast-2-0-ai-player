@@ -42,6 +42,15 @@ object TestTags {
     const val RSS_SUBSCRIBE_BUTTON = "rss_subscribe_button"
     const val RSS_CANCEL_BUTTON = "rss_cancel_button"
 
+    // Subscription Confirmation Dialog
+    const val SUBSCRIBE_CONFIRMATION_DIALOG = "subscribe_confirmation_dialog"
+    const val SUBSCRIBE_CONFIRMATION_TITLE = "subscribe_confirmation_title"
+    const val SUBSCRIBE_CONFIRMATION_IMAGE = "subscribe_confirmation_image"
+    const val SUBSCRIBE_CONFIRMATION_NAME = "subscribe_confirmation_name"
+    const val SUBSCRIBE_CONFIRMATION_DESCRIPTION = "subscribe_confirmation_description"
+    const val SUBSCRIBE_CONFIRM_BUTTON = "subscribe_confirm_button"
+    const val SUBSCRIBE_CANCEL_BUTTON = "subscribe_cancel_button"
+
     // Player Screen
     const val PLAYER_SCREEN = "player_screen"
     const val PLAY_PAUSE_BUTTON = "play_pause_button"
@@ -78,6 +87,21 @@ object TestTags {
     const val DOWNLOAD_DELETE = "download_delete"
     const val DOWNLOAD_RETRY = "download_retry"
     const val CLEAR_DOWNLOADS_BUTTON = "clear_downloads_button"
+
+    // Episode Info Bottom Sheet
+    const val EPISODE_INFO_BUTTON = "episode_info_button"
+    const val EPISODE_INFO_SHEET = "episode_info_sheet"
+    const val EPISODE_INFO_TITLE = "episode_info_title"
+    const val EPISODE_INFO_DATE = "episode_info_date"
+    const val EPISODE_INFO_DURATION = "episode_info_duration"
+    const val EPISODE_INFO_EPISODE_NUMBER = "episode_info_episode_number"
+    const val EPISODE_INFO_EXPLICIT = "episode_info_explicit"
+    const val EPISODE_INFO_LINK = "episode_info_link"
+    const val EPISODE_INFO_TRANSCRIPT = "episode_info_transcript"
+    const val EPISODE_INFO_CHAPTERS_HEADER = "episode_info_chapters_header"
+    const val EPISODE_INFO_CHAPTER_ITEM = "episode_info_chapter_item"
+    const val EPISODE_INFO_SHOW_NOTES_HEADER = "episode_info_show_notes_header"
+    const val EPISODE_INFO_DESCRIPTION = "episode_info_description"
 
     // General
     const val LOADING_INDICATOR = "loading_indicator"

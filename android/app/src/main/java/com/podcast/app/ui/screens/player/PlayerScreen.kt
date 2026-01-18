@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
@@ -34,6 +35,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +50,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.podcast.app.ui.components.EmptyState
+import com.podcast.app.ui.components.EpisodeInfoBottomSheet
+import com.podcast.app.util.TestTags
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +63,7 @@ fun PlayerScreen(
     val podcast by viewModel.podcast.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
     val showSpeedDialog by viewModel.showSpeedDialog.collectAsState()
+    var showInfoSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -68,6 +75,14 @@ fun PlayerScreen(
                     }
                 },
                 actions = {
+                    if (episode != null) {
+                        IconButton(
+                            onClick = { showInfoSheet = true },
+                            modifier = Modifier.testTag(TestTags.EPISODE_INFO_BUTTON)
+                        ) {
+                            Icon(Icons.Default.Info, contentDescription = "Episode info")
+                        }
+                    }
                     IconButton(onClick = { viewModel.showSpeedSelector() }) {
                         Icon(Icons.Default.Speed, contentDescription = "Playback speed")
                     }
@@ -210,6 +225,16 @@ fun PlayerScreen(
                 currentSpeed = playbackState.playbackSpeed,
                 onSpeedSelected = { viewModel.setPlaybackSpeed(it) },
                 onDismiss = { viewModel.hideSpeedSelector() }
+            )
+        }
+
+        // Episode info bottom sheet
+        if (showInfoSheet && episode != null) {
+            EpisodeInfoBottomSheet(
+                episode = episode!!,
+                podcastTitle = podcast?.title,
+                fallbackImageUrl = podcast?.imageUrl,
+                onDismiss = { showInfoSheet = false }
             )
         }
     }

@@ -18,6 +18,12 @@
         android:maxSdkVersion="28"
         tools:ignore="ScopedStorage" />
 
+    <!-- Notification permission for Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Foreground service for downloads -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
     <!-- Custom signature-level permission for MCP control -->
     <permission
         android:name="com.podcast.app.permission.MCP_CONTROL"
@@ -77,7 +83,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- WorkManager initialization (for background sync) -->
+        <!-- Disable default WorkManager initialization - using HiltWorkerFactory instead -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
@@ -85,7 +91,8 @@
             tools:node="merge">
             <meta-data
                 android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup" />
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
 
     </application>

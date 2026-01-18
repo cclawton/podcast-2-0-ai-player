@@ -18,6 +18,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -36,9 +40,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.podcast.app.data.local.entities.DownloadStatus
+import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.ui.Screen
 import com.podcast.app.ui.components.EmptyState
 import com.podcast.app.ui.components.EpisodeCard
+import com.podcast.app.ui.components.EpisodeInfoBottomSheet
 import com.podcast.app.ui.components.MiniPlayer
 import com.podcast.app.ui.components.NetworkDisabledBanner
 import com.podcast.app.ui.components.PodcastThumbnail
@@ -57,6 +63,7 @@ fun LibraryScreen(
     val canUseNetwork by viewModel.canUseNetwork.collectAsState()
     val downloads by viewModel.downloads.collectAsState()
     val podcastImages by viewModel.podcastImages.collectAsState()
+    var selectedEpisodeForInfo by remember { mutableStateOf<Episode?>(null) }
 
     Scaffold(
         topBar = {
@@ -160,6 +167,7 @@ fun LibraryScreen(
                                         fallbackImageUrl = podcastImages[episode.podcastId]?.takeIf { it.isNotBlank() },
                                         onPlayClick = { viewModel.playEpisode(episode.id) },
                                         onDownloadClick = { viewModel.downloadEpisode(episode) },
+                                        onInfoClick = { selectedEpisodeForInfo = episode },
                                         onClick = { viewModel.playEpisode(episode.id) },
                                         modifier = Modifier.width(320.dp)
                                     )
@@ -169,6 +177,15 @@ fun LibraryScreen(
                     }
                 }
             }
+        }
+
+        // Episode info bottom sheet
+        selectedEpisodeForInfo?.let { episode ->
+            EpisodeInfoBottomSheet(
+                episode = episode,
+                fallbackImageUrl = podcastImages[episode.podcastId]?.takeIf { it.isNotBlank() },
+                onDismiss = { selectedEpisodeForInfo = null }
+            )
         }
     }
 }
