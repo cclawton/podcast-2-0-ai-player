@@ -125,6 +125,10 @@ object TestTags {
     const val TEST_CLAUDE_CONNECTION = "test_claude_connection"
     const val CLAUDE_CONNECTION_STATUS = "claude_connection_status"
 
+    // LLM Test (GH#31)
+    const val LLM_TEST_BUTTON = "test_llm_button"
+    const val LLM_TEST_RESULTS = "llm_test_results"
+
     // Onboarding (GH#27)
     const val ONBOARDING_SCREEN = "onboarding_screen"
     const val ENABLE_MICROPHONE_BUTTON = "enable_microphone_button"
@@ -138,4 +142,13 @@ object TestTags {
     const val PLAYER_TAB_INFO = "player_tab_info"
     const val PLAYER_TAB_CHAPTERS = "player_tab_chapters"
     const val PLAYER_TAB_TRANSCRIPT = "player_tab_transcript"
+
+    // AI Search (GH#30)
+    const val AI_SEARCH_BUTTON = "ai_search_button"
+    const val AI_SEARCH_INPUT = "ai_search_input"
+    const val AI_SEARCH_SUBMIT = "ai_search_submit"
+    const val AI_SEARCH_LOADING = "ai_search_loading"
+    const val AI_SEARCH_RESULTS = "ai_search_results"
+    const val AI_SEARCH_ERROR = "ai_search_error"
+    const val AI_SEARCH_CONFIGURE_API = "ai_search_configure_api"
 }

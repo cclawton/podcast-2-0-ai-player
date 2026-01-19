@@ -42,6 +42,11 @@
     <string name="sync_success">All feeds up to date</string>
     <string name="sync_new_episodes">Found %d new episode(s)</string>
 
+    <!-- Notifications -->
+    <string name="notification_channel_playback">Podcast Playback</string>
+    <string name="notification_channel_playback_description">Shows playback controls when a podcast is playing</string>
+    <string name="notification_playing">Playing podcast</string>
+
     <!-- Errors -->
     <string name="error_network">Network error. Please check your connection.</string>
     <string name="error_not_found">Podcast not found.</string>

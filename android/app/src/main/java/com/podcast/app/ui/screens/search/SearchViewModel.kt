@@ -16,12 +16,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.podcast.app.api.claude.AISearchService
 import javax.inject.Inject
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val repository: PodcastRepository,
-    private val privacyManager: PrivacyManager
+    private val privacyManager: PrivacyManager,
+    private val aiSearchService: AISearchService
 ) : ViewModel() {
 
     companion object {
@@ -63,6 +65,30 @@ class SearchViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private var searchJob: Job? = null
+
+    // ================================
+    // AI Search State (GH#30)
+    // ================================
+    private val _showAiSearch = MutableStateFlow(false)
+    val showAiSearch: StateFlow<Boolean> = _showAiSearch.asStateFlow()
+
+    private val _aiQuery = MutableStateFlow("")
+    val aiQuery: StateFlow<String> = _aiQuery.asStateFlow()
+
+    private val _aiSearchResults = MutableStateFlow<List<Podcast>>(emptyList())
+    val aiSearchResults: StateFlow<List<Podcast>> = _aiSearchResults.asStateFlow()
+
+    private val _isAiLoading = MutableStateFlow(false)
+    val isAiLoading: StateFlow<Boolean> = _isAiLoading.asStateFlow()
+
+    private val _aiError = MutableStateFlow<String?>(null)
+    val aiError: StateFlow<String?> = _aiError.asStateFlow()
+
+    private val _aiExplanation = MutableStateFlow<String?>(null)
+    val aiExplanation: StateFlow<String?> = _aiExplanation.asStateFlow()
+
+    val isAiAvailable: Boolean
+        get() = aiSearchService.isApiKeyConfigured()
 
     init {
         loadTrending()
@@ -231,5 +257,65 @@ class SearchViewModel @Inject constructor(
 
     fun clearRssSubscriptionSuccess() {
         _rssSubscriptionSuccess.value = null
+    }
+
+    // ================================
+    // AI Search Methods (GH#30)
+    // ================================
+
+    fun toggleAiSearch() {
+        _showAiSearch.value = !_showAiSearch.value
+        if (!_showAiSearch.value) {
+            // Clear AI search state when closing
+            _aiQuery.value = ""
+            _aiSearchResults.value = emptyList()
+            _aiError.value = null
+            _aiExplanation.value = null
+        }
+    }
+
+    fun updateAiQuery(query: String) {
+        _aiQuery.value = query
+        _aiError.value = null
+    }
+
+    fun performAiSearch() {
+        val query = _aiQuery.value.trim()
+        if (query.isBlank()) {
+            _aiError.value = "Please enter a search query"
+            return
+        }
+
+        viewModelScope.launch {
+            _isAiLoading.value = true
+            _aiError.value = null
+            _aiExplanation.value = null
+
+            when (val result = aiSearchService.search(query)) {
+                is AISearchService.AISearchResult.Success -> {
+                    DiagnosticLogger.i(TAG, "AI search success: ${result.podcasts.size} results")
+                    _aiSearchResults.value = result.podcasts
+                    _aiExplanation.value = result.explanation
+                }
+                is AISearchService.AISearchResult.Error -> {
+                    DiagnosticLogger.e(TAG, "AI search error: ${result.message}")
+                    _aiError.value = result.message
+                }
+                is AISearchService.AISearchResult.ApiKeyNotConfigured -> {
+                    DiagnosticLogger.w(TAG, "AI search: API key not configured")
+                    _aiError.value = "Claude API key not configured. Go to Settings to add your API key."
+                }
+                is AISearchService.AISearchResult.ClaudeApiDisabled -> {
+                    DiagnosticLogger.w(TAG, "AI search: Claude API disabled")
+                    _aiError.value = "Claude API is disabled in privacy settings."
+                }
+            }
+
+            _isAiLoading.value = false
+        }
+    }
+
+    fun clearAiError() {
+        _aiError.value = null
     }
 }

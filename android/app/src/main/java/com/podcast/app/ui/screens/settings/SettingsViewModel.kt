@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.podcast.app.api.claude.ClaudeApiClient
 import com.podcast.app.api.claude.ClaudeApiKeyManager
+import com.podcast.app.api.claude.LLMTestResult
+import com.podcast.app.api.claude.QueryResponse
 import com.podcast.app.privacy.OperationalMode
 import com.podcast.app.privacy.PrivacyManager
 import com.podcast.app.privacy.PrivacyPreset
@@ -57,6 +59,13 @@ class SettingsViewModel @Inject constructor(
 
     private val _connectionTestMessage = MutableStateFlow<String?>(null)
     val connectionTestMessage: StateFlow<String?> = _connectionTestMessage.asStateFlow()
+
+    // LLM Test state (GH#31)
+    private val _llmTestResult = MutableStateFlow<LLMTestResult?>(null)
+    val llmTestResult: StateFlow<LLMTestResult?> = _llmTestResult.asStateFlow()
+
+    private val _isRunningLlmTest = MutableStateFlow(false)
+    val isRunningLlmTest: StateFlow<Boolean> = _isRunningLlmTest.asStateFlow()
 
     init {
         refreshOperationalMode()
@@ -172,6 +181,40 @@ class SettingsViewModel @Inject constructor(
 
             _isTestingConnection.value = false
         }
+    }
+
+    /**
+     * Test Claude API with simple natural language queries (GH#31).
+     * Runs "What color is the sun?" and "Why is the sky blue?" to demonstrate LLM capability.
+     */
+    fun testClaudeWithQueries() {
+        val apiKey = _claudeApiKey.value
+        if (apiKey.isBlank()) return
+
+        viewModelScope.launch {
+            _isRunningLlmTest.value = true
+            _llmTestResult.value = null
+
+            val result = claudeApiClient.testWithQueries(apiKey)
+            result.onSuccess { testResult ->
+                _llmTestResult.value = testResult
+                // Also update connection status
+                _connectionTestResult.value = testResult.connectionSuccess
+                _connectionTestMessage.value = testResult.connectionMessage
+            }.onFailure { e ->
+                _llmTestResult.value = LLMTestResult(
+                    connectionSuccess = false,
+                    connectionMessage = e.message ?: "Test failed",
+                    queryResponses = emptyList()
+                )
+            }
+
+            _isRunningLlmTest.value = false
+        }
+    }
+
+    fun clearLlmTestResult() {
+        _llmTestResult.value = null
     }
 
     fun updateAutoDownloadOnWifiOnly(enabled: Boolean) {

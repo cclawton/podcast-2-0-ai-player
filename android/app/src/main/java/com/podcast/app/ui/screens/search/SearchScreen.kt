@@ -21,9 +21,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.RssFeed
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -77,12 +80,29 @@ fun SearchScreen(
     val showSubscribeConfirmation by viewModel.showSubscribeConfirmation.collectAsState()
     val selectedPodcast by viewModel.selectedPodcast.collectAsState()
 
+    // AI Search state (GH#30)
+    val showAiSearch by viewModel.showAiSearch.collectAsState()
+    val aiQuery by viewModel.aiQuery.collectAsState()
+    val aiSearchResults by viewModel.aiSearchResults.collectAsState()
+    val isAiLoading by viewModel.isAiLoading.collectAsState()
+    val aiError by viewModel.aiError.collectAsState()
+    val aiExplanation by viewModel.aiExplanation.collectAsState()
+    val isAiAvailable = viewModel.isAiAvailable
+
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(error) {
         error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    // Handle AI search errors
+    LaunchedEffect(aiError) {
+        aiError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearAiError()
         }
     }
 
@@ -127,6 +147,19 @@ fun SearchScreen(
                     }
                 },
                 actions = {
+                    // AI Search button (GH#30)
+                    if (isAiAvailable) {
+                        IconButton(
+                            onClick = { viewModel.toggleAiSearch() },
+                            modifier = Modifier.testTag(TestTags.AI_SEARCH_BUTTON)
+                        ) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = "AI Search",
+                                tint = if (showAiSearch) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = { viewModel.showRssDialog() },
                         modifier = Modifier.testTag(TestTags.RSS_FEED_BUTTON)
@@ -151,6 +184,65 @@ fun SearchScreen(
                 NetworkDisabledBanner()
             }
 
+            // AI Search expandable field (GH#30)
+            AnimatedVisibility(visible = showAiSearch) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = aiQuery,
+                            onValueChange = { viewModel.updateAiQuery(it) },
+                            placeholder = { Text("Ask AI: e.g., 'podcasts about machine learning'") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { viewModel.performAiSearch() },
+                                    enabled = aiQuery.isNotBlank() && !isAiLoading,
+                                    modifier = Modifier.testTag(TestTags.AI_SEARCH_SUBMIT)
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.Send,
+                                        contentDescription = "Search",
+                                        tint = if (aiQuery.isNotBlank() && !isAiLoading)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    )
+                                }
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { viewModel.performAiSearch() }),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag(TestTags.AI_SEARCH_INPUT)
+                        )
+                    }
+
+                    // Show AI explanation if available
+                    aiExplanation?.let { explanation ->
+                        Text(
+                            text = explanation,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp, start = 8.dp)
+                        )
+                    }
+                }
+            }
+
             OutlinedTextField(
                 value = query,
                 onValueChange = { viewModel.updateQuery(it) },
@@ -173,6 +265,34 @@ fun SearchScreen(
             )
 
             when {
+                // AI Search loading state (GH#30)
+                isAiLoading -> {
+                    LoadingState(
+                        message = "AI is searching...",
+                        modifier = Modifier.testTag(TestTags.AI_SEARCH_LOADING)
+                    )
+                }
+
+                // AI Search results (GH#30)
+                showAiSearch && aiSearchResults.isNotEmpty() -> {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 150.dp),
+                        contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize().testTag(TestTags.AI_SEARCH_RESULTS)
+                    ) {
+                        items(aiSearchResults, key = { it.podcastIndexId }) { podcast ->
+                            PodcastCard(
+                                podcast = podcast,
+                                onClick = {
+                                    viewModel.showSubscribeConfirmation(podcast)
+                                }
+                            )
+                        }
+                    }
+                }
+
                 isLoading -> {
                     LoadingState(message = "Searching...", modifier = Modifier.testTag("search_loading"))
                 }

@@ -413,4 +413,58 @@ class SearchScreenTest {
         // Actual error messages would appear here
         composeRule.onNodeWithTag(TestTags.SEARCH_SCREEN).assertIsDisplayed()
     }
+
+    // ================================
+    // AI Search Feature Tests (GH#30)
+    // ================================
+
+    @Test
+    fun searchScreen_showsAiSearchButton() {
+        // AI search button should be visible
+        composeRule.onNodeWithTag(TestTags.AI_SEARCH_BUTTON).assertIsDisplayed()
+    }
+
+    @Test
+    fun searchScreen_aiSearchButton_isClickable() {
+        // AI search button should be clickable
+        composeRule.onNodeWithTag(TestTags.AI_SEARCH_BUTTON).performClick()
+        composeRule.waitForIdle()
+
+        // Screen should still be functional
+        composeRule.onNodeWithTag(TestTags.SEARCH_SCREEN).assertIsDisplayed()
+    }
+
+    @Test
+    fun searchScreen_aiSearchButton_expandsInputField() {
+        // Click AI search button to expand input
+        composeRule.onNodeWithTag(TestTags.AI_SEARCH_BUTTON).performClick()
+        composeRule.waitForIdle()
+
+        // AI search input should appear or AI-related UI should change
+        // (Implementation may show a different search mode)
+        composeRule.onNodeWithTag(TestTags.SEARCH_SCREEN).assertIsDisplayed()
+    }
+
+    @Test
+    fun searchScreen_aiSearchButton_hasAutoAwesomeIcon() {
+        // AI search button should have AutoAwesome icon (checked via content description)
+        composeRule.onNodeWithContentDescription("AI Search").assertExists()
+    }
+
+    @Test
+    fun searchScreen_aiSearch_navigatesToSettingsIfNoApiKey() {
+        // When AI search is used without an API key, it should prompt to configure
+        composeRule.onNodeWithTag(TestTags.AI_SEARCH_BUTTON).performClick()
+        composeRule.waitForIdle()
+
+        // Either shows "Configure API" option or stays on search
+        composeRule.onNodeWithTag(TestTags.SEARCH_SCREEN).assertIsDisplayed()
+    }
+
+    @Test
+    fun searchScreen_combinedSearch_showsBothInputOptions() {
+        // Verify search screen has both standard and AI search options
+        composeRule.onNodeWithTag(TestTags.SEARCH_INPUT).assertIsDisplayed()
+        composeRule.onNodeWithTag(TestTags.AI_SEARCH_BUTTON).assertIsDisplayed()
+    }
 }

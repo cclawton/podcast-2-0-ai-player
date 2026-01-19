@@ -62,6 +62,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.podcast.app.api.claude.LLMTestResult
 import com.podcast.app.privacy.OperationalMode
 import com.podcast.app.privacy.PrivacyPreset
 import com.podcast.app.sync.SyncInterval
@@ -85,6 +86,10 @@ fun SettingsScreen(
     val isTestingConnection by viewModel.isTestingConnection.collectAsState()
     val connectionTestResult by viewModel.connectionTestResult.collectAsState()
     val connectionTestMessage by viewModel.connectionTestMessage.collectAsState()
+
+    // LLM Test state (GH#31)
+    val llmTestResult by viewModel.llmTestResult.collectAsState()
+    val isRunningLlmTest by viewModel.isRunningLlmTest.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -216,7 +221,11 @@ fun SettingsScreen(
                     onTestConnection = { viewModel.testClaudeConnection() },
                     isTestingConnection = isTestingConnection,
                     connectionTestResult = connectionTestResult,
-                    connectionTestMessage = connectionTestMessage
+                    connectionTestMessage = connectionTestMessage,
+                    // GH#31: Enhanced LLM test
+                    onTestWithQueries = { viewModel.testClaudeWithQueries() },
+                    isRunningLlmTest = isRunningLlmTest,
+                    llmTestResult = llmTestResult
                 )
             }
 
@@ -789,7 +798,11 @@ private fun ClaudeApiConfiguration(
     onTestConnection: () -> Unit,
     isTestingConnection: Boolean,
     connectionTestResult: Boolean?,
-    connectionTestMessage: String?
+    connectionTestMessage: String?,
+    // GH#31: Enhanced LLM test parameters
+    onTestWithQueries: () -> Unit = {},
+    isRunningLlmTest: Boolean = false,
+    llmTestResult: LLMTestResult? = null
 ) {
     var showApiKey by remember { mutableStateOf(false) }
 
@@ -913,6 +926,96 @@ private fun ClaudeApiConfiguration(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            // GH#31: Enhanced LLM test with natural language queries
+            if (connectionTestResult == true) {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "LLM Test",
+                    style = MaterialTheme.typography.titleSmall
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Test the AI with simple questions to verify it's working.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onTestWithQueries,
+                    enabled = !isRunningLlmTest && !isTestingConnection,
+                    modifier = Modifier.testTag("test_llm_button")
+                ) {
+                    if (isRunningLlmTest) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.padding(start = 8.dp))
+                        Text("Testing AI...")
+                    } else {
+                        Text("Test AI Responses")
+                    }
+                }
+
+                // Display LLM test results
+                llmTestResult?.let { result ->
+                    if (result.queryResponses.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("llm_test_results"),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.padding(start = 4.dp))
+                                    Text(
+                                        text = "AI Responses Verified",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                result.queryResponses.forEach { qr ->
+                                    Text(
+                                        text = "Q: ${qr.query.replace(" Answer in one sentence.", "")}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "A: ${qr.response}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

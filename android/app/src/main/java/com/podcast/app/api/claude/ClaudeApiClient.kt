@@ -80,6 +80,96 @@ class ClaudeApiClient @Inject constructor(
             Result.success(ConnectionTestResult(false, "Connection failed: ${e.message}"))
         }
     }
+
+    /**
+     * Test the API with simple natural language queries to demonstrate LLM functionality.
+     *
+     * GH#31: Enhanced API test that runs actual NL queries after connection verification.
+     *
+     * @param apiKey The API key to test
+     * @return Result with connection status and query/response pairs
+     */
+    suspend fun testWithQueries(apiKey: String): Result<LLMTestResult> = withContext(Dispatchers.IO) {
+        // First, verify basic connection
+        val connectionResult = testConnection(apiKey).getOrNull()
+        if (connectionResult == null || !connectionResult.success) {
+            return@withContext Result.success(
+                LLMTestResult(
+                    connectionSuccess = false,
+                    connectionMessage = connectionResult?.message ?: "Connection failed",
+                    queryResponses = emptyList()
+                )
+            )
+        }
+
+        // Run simple natural language test queries
+        val testQueries = listOf(
+            "What color is the sun? Answer in one sentence.",
+            "Why is the sky blue? Answer in one sentence."
+        )
+
+        val responses = mutableListOf<QueryResponse>()
+
+        for (query in testQueries) {
+            try {
+                val response = sendQuery(apiKey, query)
+                responses.add(QueryResponse(query = query, response = response))
+            } catch (e: Exception) {
+                responses.add(QueryResponse(query = query, response = "Error: ${e.message}"))
+            }
+        }
+
+        Result.success(
+            LLMTestResult(
+                connectionSuccess = true,
+                connectionMessage = "Connection successful",
+                queryResponses = responses
+            )
+        )
+    }
+
+    /**
+     * Send a single query to Claude and get the response.
+     *
+     * @param apiKey The API key
+     * @param query The user query
+     * @return The assistant's response text
+     */
+    private suspend fun sendQuery(apiKey: String, query: String): String = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("model", TEST_MODEL)
+            put("max_tokens", 100)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", query)
+                })
+            })
+        }
+
+        val request = Request.Builder()
+            .url(API_URL)
+            .addHeader("x-api-key", apiKey)
+            .addHeader("anthropic-version", ANTHROPIC_VERSION)
+            .addHeader("content-type", "application/json")
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+
+        val response = okHttpClient.newCall(request).execute()
+
+        if (!response.isSuccessful) {
+            throw Exception("API error: ${response.code}")
+        }
+
+        val responseBody = response.body?.string() ?: throw Exception("Empty response")
+        val json = JSONObject(responseBody)
+        val content = json.getJSONArray("content")
+        if (content.length() > 0) {
+            content.getJSONObject(0).getString("text")
+        } else {
+            "No response"
+        }
+    }
 }
 
 /**
@@ -88,4 +178,21 @@ class ClaudeApiClient @Inject constructor(
 data class ConnectionTestResult(
     val success: Boolean,
     val message: String
+)
+
+/**
+ * A single query/response pair from the LLM test.
+ */
+data class QueryResponse(
+    val query: String,
+    val response: String
+)
+
+/**
+ * Result of the enhanced LLM test with natural language queries.
+ */
+data class LLMTestResult(
+    val connectionSuccess: Boolean,
+    val connectionMessage: String,
+    val queryResponses: List<QueryResponse>
 )
