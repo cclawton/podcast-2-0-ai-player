@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -28,7 +29,9 @@ import javax.inject.Inject
  * - Integrates with Android's media controls (lock screen, Bluetooth, etc.)
  *
  * GH#28: Fix for playback stopping after ~1 minute when app is backgrounded.
+ * Uses ThrottledMediaNotificationProvider to prevent notification rate limiting.
  */
+@UnstableApi
 @AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
 
@@ -46,7 +49,19 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        configureNotificationProvider()
         initializePlayer()
+    }
+
+    /**
+     * Configures the custom notification provider to prevent rate limiting.
+     *
+     * GH#28: Android enforces a 5.0 updates/second rate limit on notifications.
+     * The default provider updates on every position change, exceeding this limit.
+     * Our ThrottledMediaNotificationProvider limits updates to once per second.
+     */
+    private fun configureNotificationProvider() {
+        setMediaNotificationProvider(ThrottledMediaNotificationProvider(this))
     }
 
     /**
