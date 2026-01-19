@@ -98,32 +98,80 @@ class AISearchService @Inject constructor(
     }
 
     private suspend fun interpretQuery(apiKey: String, query: String): QueryInterpretation? {
-        val systemPrompt = "You are a podcast search assistant. Respond with ONLY a JSON object with fields: search_type (byterm/byperson/bytitle), query, explanation"
+        val systemPrompt = """You are a podcast search assistant for the PodcastIndex API. Your job is to interpret natural language queries and extract optimal search parameters.
+
+AVAILABLE SEARCH TYPES:
+- "byperson": Search for podcasts featuring a specific person (guest, host, or author). Use when the query mentions a person's name.
+- "bytitle": Search podcast titles. Use when looking for a specific podcast show.
+- "byterm": General keyword search across all podcast metadata. Use for topics, subjects, or when unsure.
+
+CRITICAL RULES:
+1. Extract ONLY the key search term (person name, podcast title, or topic) - NOT the full query phrase
+2. Remove filler words like "recent", "latest", "episodes", "podcasts", "featuring", "with", "about", "find", "show me"
+3. For person searches, use just the person's name (e.g., "David Deutsch" not "recent podcasts with David Deutsch")
+4. For podcast searches, use just the podcast name (e.g., "Joe Rogan" not "joe rogans recent guests")
+
+EXAMPLES:
+- "joe rogans recent guests" → {"search_type": "bytitle", "query": "Joe Rogan", "explanation": "Searching for the Joe Rogan podcast to find recent episodes and guests"}
+- "recent podcasts with david deutsch" → {"search_type": "byperson", "query": "David Deutsch", "explanation": "Searching for podcast episodes featuring David Deutsch as a guest"}
+- "podcasts about quantum computing" → {"search_type": "byterm", "query": "quantum computing", "explanation": "Searching for podcasts about quantum computing"}
+- "find the lex fridman podcast" → {"search_type": "bytitle", "query": "Lex Fridman", "explanation": "Searching for the Lex Fridman podcast"}
+- "episodes with elon musk" → {"search_type": "byperson", "query": "Elon Musk", "explanation": "Searching for podcast episodes featuring Elon Musk"}
+
+Respond with ONLY a JSON object with fields: search_type, query, explanation"""
         val requestBody = JSONObject().apply {
             put("model", MODEL); put("max_tokens", 256); put("system", systemPrompt)
             put("messages", JSONArray().apply { put(JSONObject().apply { put("role", "user"); put("content", query) }) })
         }
         val request = Request.Builder().url(API_URL).addHeader("x-api-key", apiKey).addHeader("anthropic-version", ANTHROPIC_VERSION).addHeader("content-type", "application/json").post(requestBody.toString().toRequestBody("application/json".toMediaType())).build()
+        DiagnosticLogger.d(TAG, "Sending query to Claude: $query")
         val response = okHttpClient.newCall(request).execute()
-        if (!response.isSuccessful) return null
-        return parseClaudeResponse(response.body?.string() ?: return null)
+        if (!response.isSuccessful) {
+            DiagnosticLogger.w(TAG, "Claude API error: ${response.code} - ${response.message}")
+            return null
+        }
+        val responseBody = response.body?.string() ?: return null
+        val interpretation = parseClaudeResponse(responseBody)
+        DiagnosticLogger.i(TAG, "Claude interpretation: type=${interpretation?.searchType}, query=${interpretation?.query}")
+        return interpretation
     }
 
     private fun parseClaudeResponse(responseBody: String): QueryInterpretation? = try {
-        val json = JSONObject(responseBody); val content = json.getJSONArray("content")
+        val json = JSONObject(responseBody)
+        val content = json.getJSONArray("content")
         if (content.length() == 0) null else {
-            val text = content.getJSONObject(0).getString("text").trim(); val parsed = JSONObject(text)
-            QueryInterpretation(parsed.getString("search_type"), parsed.getString("query"), parsed.optString("explanation", ""))
+            var text = content.getJSONObject(0).getString("text").trim()
+            // Strip markdown code blocks if present
+            text = text.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+            // Find JSON object boundaries
+            val startIdx = text.indexOf('{')
+            val endIdx = text.lastIndexOf('}')
+            if (startIdx >= 0 && endIdx > startIdx) {
+                text = text.substring(startIdx, endIdx + 1)
+            }
+            val parsed = JSONObject(text)
+            val searchType = parsed.optString("search_type", "byterm")
+            val query = parsed.optString("query", "")
+            val explanation = parsed.optString("explanation", "")
+            if (query.isNotBlank()) {
+                QueryInterpretation(searchType, query, explanation)
+            } else null
         }
-    } catch (e: Exception) { null }
+    } catch (e: Exception) {
+        DiagnosticLogger.w(TAG, "Failed to parse Claude response: ${e.message}")
+        null
+    }
 
     private suspend fun executeSearch(interpretation: QueryInterpretation): List<Podcast> {
+        DiagnosticLogger.d(TAG, "Executing PodcastIndex search: type=${interpretation.searchType}, query='${interpretation.query}'")
         val response = when (interpretation.searchType) {
             "byperson" -> podcastIndexApi.searchByPerson(interpretation.query, MAX_SEARCH_RESULTS)
             "bytitle" -> podcastIndexApi.searchByTitle(interpretation.query, MAX_SEARCH_RESULTS)
             else -> podcastIndexApi.searchByTerm(interpretation.query, MAX_SEARCH_RESULTS)
         }
-        return response.feeds.map { it.toPodcast() }
+        val podcasts = response.feeds.map { it.toPodcast() }
+        DiagnosticLogger.i(TAG, "PodcastIndex returned ${podcasts.size} podcasts")
+        return podcasts
     }
 
     /**
