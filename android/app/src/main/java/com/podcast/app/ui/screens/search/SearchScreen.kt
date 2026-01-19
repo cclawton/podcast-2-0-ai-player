@@ -1,6 +1,8 @@
 package com.podcast.app.ui.screens.search
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,27 +13,35 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RssFeed
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -49,18 +59,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.podcast.app.api.claude.AISearchService
 import com.podcast.app.ui.Screen
 import com.podcast.app.ui.components.EmptyState
 import com.podcast.app.ui.components.LoadingState
 import com.podcast.app.ui.components.NetworkDisabledBanner
 import com.podcast.app.ui.components.PodcastCard
 import com.podcast.app.util.TestTags
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,14 +95,18 @@ fun SearchScreen(
     val showSubscribeConfirmation by viewModel.showSubscribeConfirmation.collectAsState()
     val selectedPodcast by viewModel.selectedPodcast.collectAsState()
 
-    // AI Search state (GH#30)
+    // AI Search state (GH#30, GH#35)
     val showAiSearch by viewModel.showAiSearch.collectAsState()
     val aiQuery by viewModel.aiQuery.collectAsState()
     val aiSearchResults by viewModel.aiSearchResults.collectAsState()
+    val aiEpisodeResults by viewModel.aiEpisodeResults.collectAsState()
     val isAiLoading by viewModel.isAiLoading.collectAsState()
     val aiError by viewModel.aiError.collectAsState()
     val aiExplanation by viewModel.aiExplanation.collectAsState()
     val isAiAvailable = viewModel.isAiAvailable
+
+    // GH#35: Determine if AI search has active results
+    val hasAiResults = aiSearchResults.isNotEmpty() || aiEpisodeResults.isNotEmpty()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -184,7 +203,7 @@ fun SearchScreen(
                 NetworkDisabledBanner()
             }
 
-            // AI Search expandable field (GH#30)
+            // AI Search expandable field (GH#30, GH#35)
             AnimatedVisibility(visible = showAiSearch) {
                 Column(
                     modifier = Modifier
@@ -231,14 +250,56 @@ fun SearchScreen(
                         )
                     }
 
-                    // Show AI explanation if available
+                    // GH#35: Show AI explanation in a Card with icon
                     aiExplanation?.let { explanation ->
-                        Text(
-                            text = explanation,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp, start = 8.dp)
-                        )
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                                .testTag(TestTags.AI_SEARCH_NL_RESPONSE),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Icon(
+                                    Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = explanation,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    // GH#35: Clear button when AI has results
+                    if (hasAiResults) {
+                        OutlinedButton(
+                            onClick = { viewModel.clearAiSearchResults() },
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .testTag(TestTags.AI_SEARCH_CLEAR)
+                        ) {
+                            Icon(
+                                Icons.Default.Clear,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Clear AI Results")
+                        }
                     }
                 }
             }
@@ -273,22 +334,67 @@ fun SearchScreen(
                     )
                 }
 
-                // AI Search results (GH#30)
-                showAiSearch && aiSearchResults.isNotEmpty() -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 150.dp),
+                // GH#35: Enhanced AI Search results with episodes and podcasts sections
+                showAiSearch && hasAiResults -> {
+                    LazyColumn(
                         contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize().testTag(TestTags.AI_SEARCH_RESULTS)
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag(TestTags.AI_SEARCH_RESULTS)
                     ) {
-                        items(aiSearchResults, key = { it.podcastIndexId }) { podcast ->
-                            PodcastCard(
-                                podcast = podcast,
-                                onClick = {
-                                    viewModel.showSubscribeConfirmation(podcast)
+                        // Episodes Section
+                        if (aiEpisodeResults.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Relevant Episodes",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.testTag(TestTags.AI_SEARCH_EPISODES)
+                                )
+                            }
+
+                            items(aiEpisodeResults, key = { it.id }) { episode ->
+                                AIEpisodeCard(
+                                    episode = episode,
+                                    onPlayClick = {
+                                        // TODO: Play episode directly
+                                    },
+                                    onDownloadClick = {
+                                        // TODO: Download episode
+                                    }
+                                )
+                            }
+                        }
+
+                        // Podcasts Section
+                        if (aiSearchResults.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Related Podcasts",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier
+                                        .padding(top = if (aiEpisodeResults.isNotEmpty()) 8.dp else 0.dp)
+                                        .testTag(TestTags.AI_SEARCH_PODCASTS)
+                                )
+                            }
+
+                            item {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    contentPadding = PaddingValues(vertical = 8.dp)
+                                ) {
+                                    items(aiSearchResults, key = { it.podcastIndexId }) { podcast ->
+                                        PodcastCard(
+                                            podcast = podcast,
+                                            onClick = {
+                                                // GH#32: Navigate to feed screen to browse before subscribing
+                                                navController.navigate(Screen.PodcastFeed.createRoute(podcast.podcastIndexId))
+                                            },
+                                            modifier = Modifier.width(150.dp)
+                                        )
+                                    }
                                 }
-                            )
+                            }
                         }
                     }
                 }
@@ -317,15 +423,16 @@ fun SearchScreen(
                             PodcastCard(
                                 podcast = podcast,
                                 onClick = {
-                                    // Show confirmation dialog before subscribing
-                                    viewModel.showSubscribeConfirmation(podcast)
+                                    // GH#32: Navigate to feed screen to browse before subscribing
+                                    navController.navigate(Screen.PodcastFeed.createRoute(podcast.podcastIndexId))
                                 }
                             )
                         }
                     }
                 }
 
-                trendingPodcasts.isNotEmpty() -> {
+                // GH#35: Hide trending when AI search is active with a query
+                trendingPodcasts.isNotEmpty() && !(showAiSearch && aiQuery.isNotBlank()) -> {
                     Text(
                         text = "Trending Podcasts",
                         style = MaterialTheme.typography.titleMedium,
@@ -343,8 +450,8 @@ fun SearchScreen(
                             PodcastCard(
                                 podcast = podcast,
                                 onClick = {
-                                    // Show confirmation dialog before subscribing
-                                    viewModel.showSubscribeConfirmation(podcast)
+                                    // GH#32: Navigate to feed screen to browse before subscribing
+                                    navController.navigate(Screen.PodcastFeed.createRoute(podcast.podcastIndexId))
                                 }
                             )
                         }
@@ -500,4 +607,116 @@ private fun SubscribeConfirmationDialog(
         },
         modifier = Modifier.testTag(TestTags.SUBSCRIBE_CONFIRMATION_DIALOG)
     )
+}
+
+/**
+ * GH#35: Card component for displaying AI search episode results.
+ * Shows episode title, podcast name, duration, and play/download actions.
+ */
+@Composable
+private fun AIEpisodeCard(
+    episode: AISearchService.AISearchEpisode,
+    onPlayClick: () -> Unit,
+    onDownloadClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Episode/Podcast image
+            val imageUrl = episode.imageUrl ?: episode.podcastImageUrl
+            imageUrl?.let {
+                AsyncImage(
+                    model = it,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+
+            // Episode details
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = episode.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = episode.podcastTitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    episode.publishedAt?.let { timestamp ->
+                        Text(
+                            text = formatEpisodeDate(timestamp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    episode.audioDuration?.let { duration ->
+                        Text(
+                            text = " - ${formatEpisodeDuration(duration)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Action buttons
+            IconButton(onClick = onPlayClick) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            IconButton(onClick = onDownloadClick) {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = "Download",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Format episode timestamp for display.
+ */
+private fun formatEpisodeDate(timestamp: Long): String {
+    val sdf = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    return sdf.format(Date(timestamp))
+}
+
+/**
+ * Format episode duration in seconds to human-readable string.
+ */
+private fun formatEpisodeDuration(seconds: Int): String {
+    val hours = seconds / 3600
+    val minutes = (seconds % 3600) / 60
+    return if (hours > 0) {
+        "${hours}h ${minutes}m"
+    } else {
+        "${minutes}m"
+    }
 }

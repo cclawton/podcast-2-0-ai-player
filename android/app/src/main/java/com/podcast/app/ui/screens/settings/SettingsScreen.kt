@@ -91,6 +91,10 @@ fun SettingsScreen(
     val llmTestResult by viewModel.llmTestResult.collectAsState()
     val isRunningLlmTest by viewModel.isRunningLlmTest.collectAsState()
 
+    // GH#34: API key save state
+    val isApiKeySaved by viewModel.isApiKeySaved.collectAsState()
+    val isEditingApiKey by viewModel.isEditingApiKey.collectAsState()
+
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Show snackbar when sync message changes
@@ -225,7 +229,12 @@ fun SettingsScreen(
                     // GH#31: Enhanced LLM test
                     onTestWithQueries = { viewModel.testClaudeWithQueries() },
                     isRunningLlmTest = isRunningLlmTest,
-                    llmTestResult = llmTestResult
+                    llmTestResult = llmTestResult,
+                    // GH#34: Save button support
+                    isApiKeySaved = isApiKeySaved,
+                    isEditingApiKey = isEditingApiKey,
+                    onSaveApiKey = { viewModel.saveApiKey() },
+                    onStartEditing = { viewModel.startEditingApiKey() }
                 )
             }
 
@@ -802,9 +811,18 @@ private fun ClaudeApiConfiguration(
     // GH#31: Enhanced LLM test parameters
     onTestWithQueries: () -> Unit = {},
     isRunningLlmTest: Boolean = false,
-    llmTestResult: LLMTestResult? = null
+    llmTestResult: LLMTestResult? = null,
+    // GH#34: Save button support
+    isApiKeySaved: Boolean = false,
+    isEditingApiKey: Boolean = false,
+    onSaveApiKey: () -> Unit = {},
+    onStartEditing: () -> Unit = {}
 ) {
     var showApiKey by remember { mutableStateOf(false) }
+    
+    // Determine if we should show the input field
+    // Show input if: key not saved OR currently editing
+    val showInputField = !isApiKeySaved || isEditingApiKey
 
     Card(
         modifier = Modifier
@@ -825,101 +843,92 @@ private fun ClaudeApiConfiguration(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = apiKey,
-                onValueChange = onApiKeyChange,
-                label = { Text("API Key") },
-                placeholder = { Text("sk-ant-...") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("claude_api_key_input"),
-                singleLine = true,
-                visualTransformation = if (showApiKey) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
-                trailingIcon = {
-                    Row {
-                        IconButton(onClick = { showApiKey = !showApiKey }) {
-                            Icon(
-                                imageVector = if (showApiKey) {
-                                    Icons.Filled.VisibilityOff
-                                } else {
-                                    Icons.Filled.Visibility
-                                },
-                                contentDescription = if (showApiKey) "Hide API key" else "Show API key"
-                            )
-                        }
-                        if (apiKey.isNotBlank()) {
-                            IconButton(onClick = onClearApiKey) {
+            if (showInputField) {
+                // Key Entry Mode: Show input field
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = onApiKeyChange,
+                    label = { Text("API Key") },
+                    placeholder = { Text("sk-ant-...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("claude_api_key_input"),
+                    singleLine = true,
+                    visualTransformation = if (showApiKey) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    trailingIcon = {
+                        Row {
+                            IconButton(onClick = { showApiKey = !showApiKey }) {
                                 Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Clear API key"
+                                    imageVector = if (showApiKey) {
+                                        Icons.Filled.VisibilityOff
+                                    } else {
+                                        Icons.Filled.Visibility
+                                    },
+                                    contentDescription = if (showApiKey) "Hide API key" else "Show API key"
                                 )
                             }
+                            if (apiKey.isNotBlank()) {
+                                IconButton(onClick = onClearApiKey) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "Clear API key"
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-            )
+                )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                // GH#34: Save button
                 Button(
-                    onClick = onTestConnection,
-                    enabled = apiKey.isNotBlank() && !isTestingConnection,
-                    modifier = Modifier.testTag("test_connection_button")
+                    onClick = onSaveApiKey,
+                    enabled = apiKey.isNotBlank(),
+                    modifier = Modifier.testTag("claude_api_save_button")
                 ) {
-                    if (isTestingConnection) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.padding(start = 8.dp))
-                    }
-                    Text(if (isTestingConnection) "Testing..." else "Test Connection")
+                    Text("Save API Key")
                 }
 
-                // Show result
-                if (connectionTestResult != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (connectionTestResult) {
-                                Icons.Filled.Check
-                            } else {
-                                Icons.Filled.Close
-                            },
-                            contentDescription = null,
-                            tint = if (connectionTestResult) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            },
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.padding(start = 4.dp))
-                        Text(
-                            text = connectionTestMessage ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (connectionTestResult) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            }
-                        )
-                    }
+                Spacer(modifier = Modifier.height(8.dp))
+            } else {
+                // Saved Mode: Key is saved, show confirmation
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("claude_api_saved_indicator")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.padding(start = 8.dp))
+                    Text(
+                        text = "API key saved securely",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // GH#34: Change API Key button
+                Button(
+                    onClick = onStartEditing,
+                    modifier = Modifier.testTag("claude_api_change_button")
+                ) {
+                    Text("Change API Key")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = "Your API key is stored securely using Android Keystore encryption.",
@@ -927,89 +936,148 @@ private fun ClaudeApiConfiguration(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            // GH#31: Enhanced LLM test with natural language queries
-            if (connectionTestResult == true) {
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider()
+            // Show Test Connection button when key is saved (not editing)
+            if (isApiKeySaved && !isEditingApiKey) {
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text(
-                    text = "LLM Test",
-                    style = MaterialTheme.typography.titleSmall
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Test the AI with simple questions to verify it's working.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    onClick = onTestWithQueries,
-                    enabled = !isRunningLlmTest && !isTestingConnection,
-                    modifier = Modifier.testTag("test_llm_button")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (isRunningLlmTest) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.padding(start = 8.dp))
-                        Text("Testing AI...")
-                    } else {
-                        Text("Test AI Responses")
+                    Button(
+                        onClick = onTestConnection,
+                        enabled = !isTestingConnection,
+                        modifier = Modifier.testTag("test_connection_button")
+                    ) {
+                        if (isTestingConnection) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(modifier = Modifier.padding(start = 8.dp))
+                        }
+                        Text(if (isTestingConnection) "Testing..." else "Test Connection")
+                    }
+
+                    // Show result
+                    if (connectionTestResult != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (connectionTestResult) {
+                                    Icons.Filled.Check
+                                } else {
+                                    Icons.Filled.Close
+                                },
+                                contentDescription = null,
+                                tint = if (connectionTestResult) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.padding(start = 4.dp))
+                            Text(
+                                text = connectionTestMessage ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (connectionTestResult) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                }
+                            )
+                        }
                     }
                 }
 
-                // Display LLM test results
-                llmTestResult?.let { result ->
-                    if (result.queryResponses.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                // GH#31: Enhanced LLM test with natural language queries
+                if (connectionTestResult == true) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("llm_test_results"),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
+                    Text(
+                        text = "LLM Test",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Test the AI with simple questions to verify it is working.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = onTestWithQueries,
+                        enabled = !isRunningLlmTest && !isTestingConnection,
+                        modifier = Modifier.testTag("test_llm_button")
+                    ) {
+                        if (isRunningLlmTest) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.padding(start = 4.dp))
-                                    Text(
-                                        text = "AI Responses Verified",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                            Spacer(modifier = Modifier.padding(start = 8.dp))
+                            Text("Testing AI...")
+                        } else {
+                            Text("Test AI Responses")
+                        }
+                    }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                    // Display LLM test results
+                    llmTestResult?.let { result ->
+                        if (result.queryResponses.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                                result.queryResponses.forEach { qr ->
-                                    Text(
-                                        text = "Q: ${qr.query.replace(" Answer in one sentence.", "")}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = "A: ${qr.response}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.padding(bottom = 8.dp)
-                                    )
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("llm_test_results"),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.padding(start = 4.dp))
+                                        Text(
+                                            text = "AI Responses Verified",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    result.queryResponses.forEach { qr ->
+                                        Text(
+                                            text = "Q: " + qr.query.replace(" Answer in one sentence.", ""),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = "A: " + qr.response,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -129,6 +129,11 @@ object TestTags {
     const val LLM_TEST_BUTTON = "test_llm_button"
     const val LLM_TEST_RESULTS = "llm_test_results"
 
+    // Claude API Save (GH#34)
+    const val CLAUDE_API_SAVE_BUTTON = "claude_api_save_button"
+    const val CLAUDE_API_SAVED_INDICATOR = "claude_api_saved_indicator"
+    const val CLAUDE_API_CHANGE_BUTTON = "claude_api_change_button"
+
     // Onboarding (GH#27)
     const val ONBOARDING_SCREEN = "onboarding_screen"
     const val ENABLE_MICROPHONE_BUTTON = "enable_microphone_button"
@@ -151,4 +156,19 @@ object TestTags {
     const val AI_SEARCH_RESULTS = "ai_search_results"
     const val AI_SEARCH_ERROR = "ai_search_error"
     const val AI_SEARCH_CONFIGURE_API = "ai_search_configure_api"
+
+    // AI Search Enhanced (GH#35)
+    const val AI_SEARCH_NL_RESPONSE = "ai_search_nl_response"
+    const val AI_SEARCH_EPISODES = "ai_search_episodes"
+    const val AI_SEARCH_PODCASTS = "ai_search_podcasts"
+    const val AI_SEARCH_CLEAR = "ai_search_clear"
+
+    // Podcast Feed Screen (GH#32)
+    const val PODCAST_FEED_SCREEN = "podcast_feed_screen"
+    const val PODCAST_FEED_TITLE = "podcast_feed_title"
+    const val PODCAST_FEED_DESCRIPTION = "podcast_feed_description"
+    const val PODCAST_FEED_EPISODES = "podcast_feed_episodes"
+    const val PODCAST_FEED_SUBSCRIBE_BUTTON = "podcast_feed_subscribe_button"
+    const val PODCAST_FEED_EPISODE_ITEM = "podcast_feed_episode_item"
+    const val PODCAST_FEED_DOWNLOAD_BUTTON = "podcast_feed_download_button"
 }

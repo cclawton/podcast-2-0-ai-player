@@ -67,7 +67,7 @@ class SearchViewModel @Inject constructor(
     private var searchJob: Job? = null
 
     // ================================
-    // AI Search State (GH#30)
+    // AI Search State (GH#30, GH#35)
     // ================================
     private val _showAiSearch = MutableStateFlow(false)
     val showAiSearch: StateFlow<Boolean> = _showAiSearch.asStateFlow()
@@ -78,6 +78,9 @@ class SearchViewModel @Inject constructor(
     private val _aiSearchResults = MutableStateFlow<List<Podcast>>(emptyList())
     val aiSearchResults: StateFlow<List<Podcast>> = _aiSearchResults.asStateFlow()
 
+    private val _aiEpisodeResults = MutableStateFlow<List<AISearchService.AISearchEpisode>>(emptyList())
+    val aiEpisodeResults: StateFlow<List<AISearchService.AISearchEpisode>> = _aiEpisodeResults.asStateFlow()
+
     private val _isAiLoading = MutableStateFlow(false)
     val isAiLoading: StateFlow<Boolean> = _isAiLoading.asStateFlow()
 
@@ -87,11 +90,34 @@ class SearchViewModel @Inject constructor(
     private val _aiExplanation = MutableStateFlow<String?>(null)
     val aiExplanation: StateFlow<String?> = _aiExplanation.asStateFlow()
 
+    // GH#33: Track if AI is fully configured (API key + Claude API enabled in settings)
+    private val _isAiConfigured = MutableStateFlow(false)
+    val isAiConfigured: StateFlow<Boolean> = _isAiConfigured.asStateFlow()
+
     val isAiAvailable: Boolean
         get() = aiSearchService.isApiKeyConfigured()
 
     init {
         loadTrending()
+        initializeAiSearchState()
+    }
+
+    /**
+     * GH#33: Initialize AI search state based on configuration.
+     * Auto-show AI search field when Claude API is enabled AND API key is configured.
+     */
+    private fun initializeAiSearchState() {
+        viewModelScope.launch {
+            // Check if AI is fully configured (API key present + Claude API allowed in privacy settings)
+            val isConfigured = aiSearchService.isAvailable()
+            _isAiConfigured.value = isConfigured
+
+            // Auto-show AI search field if fully configured
+            if (isConfigured) {
+                DiagnosticLogger.i(TAG, "AI search auto-enabled: Claude API configured and enabled")
+                _showAiSearch.value = true
+            }
+        }
     }
 
     fun updateQuery(newQuery: String) {
@@ -171,6 +197,14 @@ class SearchViewModel @Inject constructor(
                 .onSuccess {
                     // Update UI to show subscribed state
                     _searchResults.value = _searchResults.value.map { podcast ->
+                        if (podcast.podcastIndexId == podcastIndexId) {
+                            podcast.copy(isSubscribed = true)
+                        } else {
+                            podcast
+                        }
+                    }
+                    // Also update AI search results
+                    _aiSearchResults.value = _aiSearchResults.value.map { podcast ->
                         if (podcast.podcastIndexId == podcastIndexId) {
                             podcast.copy(isSubscribed = true)
                         } else {
@@ -260,17 +294,14 @@ class SearchViewModel @Inject constructor(
     }
 
     // ================================
-    // AI Search Methods (GH#30)
+    // AI Search Methods (GH#30, GH#35)
     // ================================
 
     fun toggleAiSearch() {
         _showAiSearch.value = !_showAiSearch.value
         if (!_showAiSearch.value) {
             // Clear AI search state when closing
-            _aiQuery.value = ""
-            _aiSearchResults.value = emptyList()
-            _aiError.value = null
-            _aiExplanation.value = null
+            clearAiSearchResults()
         }
     }
 
@@ -293,8 +324,9 @@ class SearchViewModel @Inject constructor(
 
             when (val result = aiSearchService.search(query)) {
                 is AISearchService.AISearchResult.Success -> {
-                    DiagnosticLogger.i(TAG, "AI search success: ${result.podcasts.size} results")
+                    DiagnosticLogger.i(TAG, "AI search success: ${result.podcasts.size} podcasts, ${result.episodes.size} episodes")
                     _aiSearchResults.value = result.podcasts
+                    _aiEpisodeResults.value = result.episodes
                     _aiExplanation.value = result.explanation
                 }
                 is AISearchService.AISearchResult.Error -> {
@@ -313,6 +345,14 @@ class SearchViewModel @Inject constructor(
 
             _isAiLoading.value = false
         }
+    }
+
+    fun clearAiSearchResults() {
+        _aiQuery.value = ""
+        _aiSearchResults.value = emptyList()
+        _aiEpisodeResults.value = emptyList()
+        _aiError.value = null
+        _aiExplanation.value = null
     }
 
     fun clearAiError() {

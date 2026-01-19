@@ -67,16 +67,26 @@ class SettingsViewModel @Inject constructor(
     private val _isRunningLlmTest = MutableStateFlow(false)
     val isRunningLlmTest: StateFlow<Boolean> = _isRunningLlmTest.asStateFlow()
 
+    // GH#34: API key save state
+    private val _isApiKeySaved = MutableStateFlow(false)
+    val isApiKeySaved: StateFlow<Boolean> = _isApiKeySaved.asStateFlow()
+
+    private val _isEditingApiKey = MutableStateFlow(false)
+    val isEditingApiKey: StateFlow<Boolean> = _isEditingApiKey.asStateFlow()
+
     init {
         refreshOperationalMode()
         // Initialize sync manager
         syncManager.initialize()
-        // Load Claude API key
+        // Load Claude API key and check saved state
         loadClaudeApiKey()
     }
 
     private fun loadClaudeApiKey() {
-        _claudeApiKey.value = claudeApiKeyManager.getApiKey() ?: ""
+        val savedKey = claudeApiKeyManager.getApiKey() ?: ""
+        _claudeApiKey.value = savedKey
+        _isApiKeySaved.value = claudeApiKeyManager.hasApiKey()
+        _isEditingApiKey.value = false
     }
 
     private fun refreshOperationalMode() {
@@ -145,19 +155,43 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Update the API key field value (but do not save to storage yet).
+     * GH#34: Key is only saved to storage when saveApiKey() is called.
+     */
     fun updateClaudeApiKey(key: String) {
         _claudeApiKey.value = key
         _connectionTestResult.value = null
         _connectionTestMessage.value = null
+    }
+
+    /**
+     * Save the API key to secure storage.
+     * GH#34: Explicit save action required.
+     */
+    fun saveApiKey() {
+        val key = _claudeApiKey.value
         if (key.isNotBlank()) {
             claudeApiKeyManager.saveApiKey(key)
+            _isApiKeySaved.value = true
+            _isEditingApiKey.value = false
         }
+    }
+
+    /**
+     * Enter edit mode for the API key.
+     * GH#34: Allows changing a previously saved key.
+     */
+    fun startEditingApiKey() {
+        _isEditingApiKey.value = true
     }
 
     fun clearClaudeApiKey() {
         _claudeApiKey.value = ""
         _connectionTestResult.value = null
         _connectionTestMessage.value = null
+        _isApiKeySaved.value = false
+        _isEditingApiKey.value = false
         claudeApiKeyManager.clearApiKey()
     }
 

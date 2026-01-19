@@ -21,6 +21,7 @@ import com.podcast.app.ui.screens.library.LibraryScreen
 import com.podcast.app.ui.navigation.NavHostViewModel
 import com.podcast.app.ui.screens.onboarding.OnboardingScreen
 import com.podcast.app.ui.screens.player.PlayerScreen
+import com.podcast.app.ui.screens.feed.PodcastFeedScreen
 import com.podcast.app.ui.screens.search.SearchScreen
 import com.podcast.app.ui.screens.settings.SettingsScreen
 
@@ -31,6 +32,10 @@ sealed class Screen(val route: String) {
     data object Player : Screen("player")
     data object Episodes : Screen("episodes/{podcastId}") {
         fun createRoute(podcastId: Long) = "episodes/$podcastId"
+    }
+    // GH#32: Podcast feed screen for browsing before subscribing
+    data object PodcastFeed : Screen("feed/{podcastIndexId}") {
+        fun createRoute(podcastIndexId: Long) = "feed/$podcastIndexId"
     }
     data object Settings : Screen("settings")
     data object Diagnostics : Screen("diagnostics")
@@ -125,6 +130,16 @@ fun PodcastNavHost(
 
             composable(Screen.Downloads.route) {
                 DownloadsScreen(navController = navController)
+            }
+
+            // GH#32: Podcast feed screen for browsing before subscribing
+            composable(
+                route = Screen.PodcastFeed.route,
+                arguments = listOf(
+                    navArgument("podcastIndexId") { type = NavType.StringType }
+                )
+            ) {
+                PodcastFeedScreen(navController = navController)
             }
         }
     }
