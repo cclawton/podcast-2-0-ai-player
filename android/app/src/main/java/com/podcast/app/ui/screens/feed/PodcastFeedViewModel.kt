@@ -163,7 +163,7 @@ class PodcastFeedViewModel @Inject constructor(
             }
 
             try {
-                downloadManager.enqueueDownload(episode)
+                downloadManager.downloadEpisode(episode)
                 DiagnosticLogger.i(TAG, "Download enqueued: ${episode.title}")
             } catch (e: Exception) {
                 _error.value = "Failed to start download: ${e.message}"
@@ -182,11 +182,9 @@ class PodcastFeedViewModel @Inject constructor(
             }
 
             try {
-                // Create a temporary Episode with podcast context for playback
-                val playableEpisode = episode.copy(
-                    podcastId = podcast.id
-                )
-                playbackController.playEpisode(playableEpisode, podcast)
+                // For feed episodes, we need to save the episode first to get a valid ID
+                // For now, we'll stream directly using episode ID 0 (will need proper episode saving)
+                playbackController.playEpisode(episode.id, 0)
                 DiagnosticLogger.i(TAG, "Playing episode: ${episode.title}")
             } catch (e: Exception) {
                 _error.value = "Failed to play episode: ${e.message}"

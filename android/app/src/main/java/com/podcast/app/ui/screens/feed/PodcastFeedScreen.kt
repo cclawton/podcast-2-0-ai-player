@@ -172,7 +172,7 @@ fun PodcastFeedScreen(
                         FeedEpisodeItem(
                             episode = episode,
                             isPlaying = currentEpisode?.episodeIndexId == episode.episodeIndexId &&
-                                    playbackState == PlaybackState.PLAYING,
+                                    playbackState.isPlaying,
                             isSubscribed = podcast?.isSubscribed == true,
                             onPlayClick = { viewModel.playEpisode(episode) },
                             onDownloadClick = { viewModel.downloadEpisode(episode) }
