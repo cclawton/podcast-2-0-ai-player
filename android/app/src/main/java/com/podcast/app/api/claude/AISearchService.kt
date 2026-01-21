@@ -164,13 +164,27 @@ Respond with ONLY a JSON object with fields: search_type, query, explanation"""
 
     private suspend fun executeSearch(interpretation: QueryInterpretation): List<Podcast> {
         DiagnosticLogger.d(TAG, "Executing PodcastIndex search: type=${interpretation.searchType}, query='${interpretation.query}'")
+
+        // Try primary search type
         val response = when (interpretation.searchType) {
             "byperson" -> podcastIndexApi.searchByPerson(interpretation.query, MAX_SEARCH_RESULTS)
             "bytitle" -> podcastIndexApi.searchByTitle(interpretation.query, MAX_SEARCH_RESULTS)
             else -> podcastIndexApi.searchByTerm(interpretation.query, MAX_SEARCH_RESULTS)
         }
-        val podcasts = response.feeds.map { it.toPodcast() }
-        DiagnosticLogger.i(TAG, "PodcastIndex returned ${podcasts.size} podcasts")
+        var podcasts = response.feeds.map { it.toPodcast() }
+        DiagnosticLogger.i(TAG, "PodcastIndex ${interpretation.searchType} returned ${podcasts.size} podcasts")
+
+        // GH#37: Fallback to byterm if byperson/bytitle returns empty
+        // byperson requires Podcast 2.0 person tags (rarely implemented)
+        // bytitle requires near-exact title match
+        // byterm is more flexible and searches title, author, owner
+        if (podcasts.isEmpty() && interpretation.searchType != "byterm") {
+            DiagnosticLogger.i(TAG, "Primary search (${interpretation.searchType}) returned empty, falling back to byterm")
+            val fallbackResponse = podcastIndexApi.searchByTerm(interpretation.query, MAX_SEARCH_RESULTS)
+            podcasts = fallbackResponse.feeds.map { it.toPodcast() }
+            DiagnosticLogger.i(TAG, "Fallback byterm returned ${podcasts.size} podcasts")
+        }
+
         return podcasts
     }
 

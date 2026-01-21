@@ -58,6 +58,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
@@ -110,6 +112,10 @@ fun SearchScreen(
     val hasAiResults = aiSearchResults.isNotEmpty() || aiEpisodeResults.isNotEmpty()
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Keyboard control for dismissing after search
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(error) {
         error?.let {
@@ -228,7 +234,11 @@ fun SearchScreen(
                             },
                             trailingIcon = {
                                 IconButton(
-                                    onClick = { viewModel.performAiSearch() },
+                                    onClick = {
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                        viewModel.performAiSearch()
+                                    },
                                     enabled = aiQuery.isNotBlank() && !isAiLoading,
                                     modifier = Modifier.testTag(TestTags.AI_SEARCH_SUBMIT)
                                 ) {
@@ -244,7 +254,11 @@ fun SearchScreen(
                             },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { viewModel.performAiSearch() }),
+                            keyboardActions = KeyboardActions(onSearch = {
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                                viewModel.performAiSearch()
+                            }),
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag(TestTags.AI_SEARCH_INPUT)
@@ -319,7 +333,11 @@ fun SearchScreen(
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { /* Search triggered by query change */ }),
+                keyboardActions = KeyboardActions(onSearch = {
+                    // Dismiss keyboard when user presses search (search auto-triggers on text change)
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                }),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
