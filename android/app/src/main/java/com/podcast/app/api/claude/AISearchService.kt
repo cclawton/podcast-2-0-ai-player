@@ -31,7 +31,7 @@ class AISearchService @Inject constructor(
         const val TAG = "AISearchService"
         const val API_URL = "https://api.anthropic.com/v1/messages"
         const val ANTHROPIC_VERSION = "2023-06-01"
-        const val MODEL = "claude-3-haiku-20240307"
+        const val MODEL = "claude-haiku-4-5-20251001"
         const val MAX_QUERY_LENGTH = 500
         const val MAX_SEARCH_RESULTS = 20
         const val MAX_EPISODES_PER_PODCAST = 5

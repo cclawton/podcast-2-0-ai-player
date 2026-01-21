@@ -130,22 +130,6 @@
     "refreshMs": 5000,
     "enabled": true
   },
-  "permissions": {
-    "allow": [
-      "Bash(*)",
-      "Edit",
-      "Write",
-      "MultiEdit",
-      "Read",
-      "Glob",
-      "Grep",
-      "WebFetch",
-      "WebSearch",
-      "Task",
-      "mcp__*"
-    ],
-    "deny": []
-  },
   "claudeFlow": {
     "version": "3.0.0",
     "enabled": true,

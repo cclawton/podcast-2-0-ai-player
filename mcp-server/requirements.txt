@@ -8,3 +8,7 @@ pydantic>=2.0.0
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-cov>=4.1.0
+
+# AI Query Testing
+anthropic>=0.40.0
+rich>=13.0.0
