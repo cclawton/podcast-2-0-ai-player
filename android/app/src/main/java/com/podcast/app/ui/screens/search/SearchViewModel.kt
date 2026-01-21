@@ -90,6 +90,10 @@ class SearchViewModel @Inject constructor(
     private val _aiExplanation = MutableStateFlow<String?>(null)
     val aiExplanation: StateFlow<String?> = _aiExplanation.asStateFlow()
 
+    // GH#36: Search type for conditional UI display (byperson/bytitle/byterm)
+    private val _aiSearchType = MutableStateFlow<String?>(null)
+    val aiSearchType: StateFlow<String?> = _aiSearchType.asStateFlow()
+
     // GH#33: Track if AI is fully configured (API key + Claude API enabled in settings)
     private val _isAiConfigured = MutableStateFlow(false)
     val isAiConfigured: StateFlow<Boolean> = _isAiConfigured.asStateFlow()
@@ -324,10 +328,11 @@ class SearchViewModel @Inject constructor(
 
             when (val result = aiSearchService.search(query)) {
                 is AISearchService.AISearchResult.Success -> {
-                    DiagnosticLogger.i(TAG, "AI search success: ${result.podcasts.size} podcasts, ${result.episodes.size} episodes")
+                    DiagnosticLogger.i(TAG, "AI search success: type=${result.searchType}, ${result.podcasts.size} podcasts, ${result.episodes.size} episodes")
                     _aiSearchResults.value = result.podcasts
                     _aiEpisodeResults.value = result.episodes
                     _aiExplanation.value = result.explanation
+                    _aiSearchType.value = result.searchType  // GH#36: Set search type for UI
                 }
                 is AISearchService.AISearchResult.Error -> {
                     DiagnosticLogger.e(TAG, "AI search error: ${result.message}")
@@ -353,6 +358,7 @@ class SearchViewModel @Inject constructor(
         _aiEpisodeResults.value = emptyList()
         _aiError.value = null
         _aiExplanation.value = null
+        _aiSearchType.value = null  // GH#36: Clear search type
     }
 
     fun clearAiError() {

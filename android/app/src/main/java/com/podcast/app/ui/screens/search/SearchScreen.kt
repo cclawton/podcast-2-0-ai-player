@@ -95,7 +95,7 @@ fun SearchScreen(
     val showSubscribeConfirmation by viewModel.showSubscribeConfirmation.collectAsState()
     val selectedPodcast by viewModel.selectedPodcast.collectAsState()
 
-    // AI Search state (GH#30, GH#35)
+    // AI Search state (GH#30, GH#35, GH#36)
     val showAiSearch by viewModel.showAiSearch.collectAsState()
     val aiQuery by viewModel.aiQuery.collectAsState()
     val aiSearchResults by viewModel.aiSearchResults.collectAsState()
@@ -103,6 +103,7 @@ fun SearchScreen(
     val isAiLoading by viewModel.isAiLoading.collectAsState()
     val aiError by viewModel.aiError.collectAsState()
     val aiExplanation by viewModel.aiExplanation.collectAsState()
+    val aiSearchType by viewModel.aiSearchType.collectAsState()  // GH#36: Search type for conditional display
     val isAiAvailable = viewModel.isAiAvailable
 
     // GH#35: Determine if AI search has active results
@@ -334,7 +335,9 @@ fun SearchScreen(
                     )
                 }
 
-                // GH#35: Enhanced AI Search results with episodes and podcasts sections
+                // GH#35, GH#36: AI Search results with search-type-conditional display
+                // - bytitle: Podcast feeds primary, episodes secondary
+                // - byperson/byterm: Episode tiles primary, podcasts secondary
                 showAiSearch && hasAiResults -> {
                     LazyColumn(
                         contentPadding = PaddingValues(16.dp),
@@ -343,55 +346,153 @@ fun SearchScreen(
                             .fillMaxSize()
                             .testTag(TestTags.AI_SEARCH_RESULTS)
                     ) {
-                        // Episodes Section
-                        if (aiEpisodeResults.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = "Relevant Episodes",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.testTag(TestTags.AI_SEARCH_EPISODES)
-                                )
-                            }
-
-                            items(aiEpisodeResults, key = { it.id }) { episode ->
-                                AIEpisodeCard(
-                                    episode = episode,
-                                    onPlayClick = {
-                                        // TODO: Play episode directly
-                                    },
-                                    onDownloadClick = {
-                                        // TODO: Download episode
+                        when (aiSearchType) {
+                            // bytitle: Show podcast feeds as PRIMARY, recent episodes as SECONDARY
+                            "bytitle" -> {
+                                // PRIMARY: Matching Podcasts (vertical list)
+                                if (aiSearchResults.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "Matching Podcasts",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            modifier = Modifier.testTag(TestTags.AI_SEARCH_PODCASTS)
+                                        )
                                     }
-                                )
-                            }
-                        }
 
-                        // Podcasts Section
-                        if (aiSearchResults.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = "Related Podcasts",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier
-                                        .padding(top = if (aiEpisodeResults.isNotEmpty()) 8.dp else 0.dp)
-                                        .testTag(TestTags.AI_SEARCH_PODCASTS)
-                                )
-                            }
-
-                            item {
-                                LazyRow(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(vertical = 8.dp)
-                                ) {
                                     items(aiSearchResults, key = { it.podcastIndexId }) { podcast ->
                                         PodcastCard(
                                             podcast = podcast,
                                             onClick = {
-                                                // GH#32: Navigate to feed screen to browse before subscribing
                                                 navController.navigate(Screen.PodcastFeed.createRoute(podcast.podcastIndexId))
                                             },
-                                            modifier = Modifier.width(150.dp)
+                                            modifier = Modifier.fillMaxWidth()
                                         )
+                                    }
+                                }
+
+                                // SECONDARY: Recent Episodes (limited to 3)
+                                if (aiEpisodeResults.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "Recent Episodes",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier
+                                                .padding(top = 8.dp)
+                                                .testTag(TestTags.AI_SEARCH_EPISODES)
+                                        )
+                                    }
+
+                                    items(aiEpisodeResults.take(3), key = { it.id }) { episode ->
+                                        AIEpisodeCard(
+                                            episode = episode,
+                                            onPlayClick = { /* TODO: Play episode */ },
+                                            onDownloadClick = { /* TODO: Download episode */ }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // byperson/byterm: Show episodes as PRIMARY, podcasts as SECONDARY
+                            "byperson", "byterm" -> {
+                                // PRIMARY: Episode tiles (full list)
+                                if (aiEpisodeResults.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = if (aiSearchType == "byperson") "Episodes Featuring This Person"
+                                                   else "Relevant Episodes",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            modifier = Modifier.testTag(TestTags.AI_SEARCH_EPISODES)
+                                        )
+                                    }
+
+                                    items(aiEpisodeResults, key = { it.id }) { episode ->
+                                        AIEpisodeCard(
+                                            episode = episode,
+                                            onPlayClick = { /* TODO: Play episode */ },
+                                            onDownloadClick = { /* TODO: Download episode */ }
+                                        )
+                                    }
+                                }
+
+                                // SECONDARY: Related Podcasts (horizontal scroll)
+                                if (aiSearchResults.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "Related Podcasts",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier
+                                                .padding(top = 8.dp)
+                                                .testTag(TestTags.AI_SEARCH_PODCASTS)
+                                        )
+                                    }
+
+                                    item {
+                                        LazyRow(
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            contentPadding = PaddingValues(vertical = 8.dp)
+                                        ) {
+                                            items(aiSearchResults, key = { it.podcastIndexId }) { podcast ->
+                                                PodcastCard(
+                                                    podcast = podcast,
+                                                    onClick = {
+                                                        navController.navigate(Screen.PodcastFeed.createRoute(podcast.podcastIndexId))
+                                                    },
+                                                    modifier = Modifier.width(150.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Fallback: Show both sections as before (legacy behavior)
+                            else -> {
+                                if (aiEpisodeResults.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "Relevant Episodes",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            modifier = Modifier.testTag(TestTags.AI_SEARCH_EPISODES)
+                                        )
+                                    }
+
+                                    items(aiEpisodeResults, key = { it.id }) { episode ->
+                                        AIEpisodeCard(
+                                            episode = episode,
+                                            onPlayClick = { /* TODO: Play episode */ },
+                                            onDownloadClick = { /* TODO: Download episode */ }
+                                        )
+                                    }
+                                }
+
+                                if (aiSearchResults.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "Related Podcasts",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            modifier = Modifier
+                                                .padding(top = if (aiEpisodeResults.isNotEmpty()) 8.dp else 0.dp)
+                                                .testTag(TestTags.AI_SEARCH_PODCASTS)
+                                        )
+                                    }
+
+                                    item {
+                                        LazyRow(
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            contentPadding = PaddingValues(vertical = 8.dp)
+                                        ) {
+                                            items(aiSearchResults, key = { it.podcastIndexId }) { podcast ->
+                                                PodcastCard(
+                                                    podcast = podcast,
+                                                    onClick = {
+                                                        navController.navigate(Screen.PodcastFeed.createRoute(podcast.podcastIndexId))
+                                                    },
+                                                    modifier = Modifier.width(150.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
