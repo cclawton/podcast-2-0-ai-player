@@ -1,6 +1,7 @@
 package com.podcast.app.data.remote.api
 
 import com.podcast.app.data.remote.models.EpisodesResponse
+import com.podcast.app.data.remote.models.PersonSearchResponse
 import com.podcast.app.data.remote.models.PodcastResponse
 import com.podcast.app.data.remote.models.RecentEpisodesResponse
 import com.podcast.app.data.remote.models.SearchResponse
@@ -25,11 +26,13 @@ interface PodcastIndexApi {
         @Query("clean") clean: Boolean = true
     ): SearchResponse
 
+    // Note: byperson returns episodes (items) with embedded feed metadata,
+    // not podcast feeds like other search endpoints
     @GET("search/byperson")
     suspend fun searchByPerson(
         @Query("q") person: String,
         @Query("max") max: Int = 20
-    ): SearchResponse
+    ): PersonSearchResponse
 
     @GET("search/bytitle")
     suspend fun searchByTitle(

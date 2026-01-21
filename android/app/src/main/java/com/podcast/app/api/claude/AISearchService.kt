@@ -3,6 +3,7 @@ package com.podcast.app.api.claude
 import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.data.remote.api.PodcastIndexApi
 import com.podcast.app.data.remote.models.EpisodeItem
+import com.podcast.app.data.remote.models.PersonSearchItem
 import com.podcast.app.data.remote.models.PodcastFeed
 import com.podcast.app.privacy.NetworkFeature
 import com.podcast.app.privacy.PrivacyManager
@@ -83,12 +84,21 @@ class AISearchService @Inject constructor(
         if (!privacyManager.isFeatureAllowed(NetworkFeature.CLAUDE_API)) return@withContext AISearchResult.ClaudeApiDisabled
         try {
             val interpretation = interpretQuery(apiKey, sanitizedQuery) ?: return@withContext AISearchResult.Error("Failed to interpret query")
-            val podcasts = executeSearch(interpretation)
-            val episodes = fetchEpisodesFromPodcasts(podcasts)
+
+            // GH#38: Handle byperson differently - it returns episodes directly, not podcast feeds
+            val (podcasts, episodes) = if (interpretation.searchType == "byperson") {
+                executeByPersonSearch(interpretation)
+            } else {
+                executeStandardSearch(interpretation)
+            }
+
             AISearchResult.Success(podcasts, episodes, interpretation.searchType, interpretation.query, interpretation.explanation)
         } catch (e: java.net.UnknownHostException) { AISearchResult.Error("No internet connection")
         } catch (e: java.net.SocketTimeoutException) { AISearchResult.Error("Connection timeout")
-        } catch (e: Exception) { AISearchResult.Error("Search failed") }
+        } catch (e: Exception) {
+            DiagnosticLogger.e(TAG, "Search failed: ${e.message}")
+            AISearchResult.Error("Search failed: ${e.message}")
+        }
     }
 
     private fun sanitizeQuery(query: String): String? {
@@ -162,30 +172,87 @@ Respond with ONLY a JSON object with fields: search_type, query, explanation"""
         null
     }
 
-    private suspend fun executeSearch(interpretation: QueryInterpretation): List<Podcast> {
-        DiagnosticLogger.d(TAG, "Executing PodcastIndex search: type=${interpretation.searchType}, query='${interpretation.query}'")
+    /**
+     * GH#38: Execute byperson search which returns episodes directly (not podcast feeds).
+     * The byperson endpoint returns items (episodes) with embedded feed metadata.
+     * Returns both unique podcasts extracted from episodes and the episodes themselves.
+     */
+    private suspend fun executeByPersonSearch(interpretation: QueryInterpretation): Pair<List<Podcast>, List<AISearchEpisode>> {
+        DiagnosticLogger.d(TAG, "Executing PodcastIndex byperson search: query='${interpretation.query}'")
 
-        // Try primary search type
+        val response = podcastIndexApi.searchByPerson(interpretation.query, MAX_SEARCH_RESULTS)
+        val personItems = response.items
+        DiagnosticLogger.i(TAG, "PodcastIndex byperson returned ${personItems.size} episodes")
+
+        if (personItems.isEmpty()) {
+            // Fallback to byterm search if byperson returns empty
+            // byperson requires Podcast 2.0 person tags which are rarely implemented
+            DiagnosticLogger.i(TAG, "byperson returned empty, falling back to byterm")
+            return executeStandardSearch(interpretation.copy(searchType = "byterm"))
+        }
+
+        // Convert episodes directly from byperson response
+        val episodes = personItems
+            .take(MAX_TOTAL_EPISODES)
+            .map { it.toAISearchEpisode() }
+            .sortedByDescending { it.publishedAt ?: 0 }
+
+        // Extract unique podcasts from the episode results
+        val uniquePodcasts = personItems
+            .distinctBy { it.feedId }
+            .take(MAX_SEARCH_RESULTS)
+            .mapNotNull { item ->
+                // Create a minimal Podcast from the embedded feed metadata
+                if (item.feedTitle != null) {
+                    Podcast(
+                        podcastIndexId = item.feedId,
+                        title = item.feedTitle,
+                        feedUrl = item.feedUrl ?: "",
+                        imageUrl = item.feedImage,
+                        description = null,
+                        language = item.feedLanguage ?: "en",
+                        explicit = false,
+                        author = item.feedAuthor,
+                        episodeCount = 0,
+                        websiteUrl = null,
+                        podcastGuid = null,
+                        isSubscribed = false
+                    )
+                } else null
+            }
+
+        DiagnosticLogger.i(TAG, "byperson extracted ${uniquePodcasts.size} unique podcasts, ${episodes.size} episodes")
+        return Pair(uniquePodcasts, episodes)
+    }
+
+    /**
+     * Execute standard search (bytitle or byterm) which returns podcast feeds.
+     * Then fetches episodes from the top podcasts.
+     */
+    private suspend fun executeStandardSearch(interpretation: QueryInterpretation): Pair<List<Podcast>, List<AISearchEpisode>> {
+        DiagnosticLogger.d(TAG, "Executing PodcastIndex ${interpretation.searchType} search: query='${interpretation.query}'")
+
         val response = when (interpretation.searchType) {
-            "byperson" -> podcastIndexApi.searchByPerson(interpretation.query, MAX_SEARCH_RESULTS)
             "bytitle" -> podcastIndexApi.searchByTitle(interpretation.query, MAX_SEARCH_RESULTS)
             else -> podcastIndexApi.searchByTerm(interpretation.query, MAX_SEARCH_RESULTS)
         }
         var podcasts = response.feeds.map { it.toPodcast() }
         DiagnosticLogger.i(TAG, "PodcastIndex ${interpretation.searchType} returned ${podcasts.size} podcasts")
 
-        // GH#37: Fallback to byterm if byperson/bytitle returns empty
-        // byperson requires Podcast 2.0 person tags (rarely implemented)
+        // GH#37: Fallback to byterm if bytitle returns empty
         // bytitle requires near-exact title match
         // byterm is more flexible and searches title, author, owner
-        if (podcasts.isEmpty() && interpretation.searchType != "byterm") {
-            DiagnosticLogger.i(TAG, "Primary search (${interpretation.searchType}) returned empty, falling back to byterm")
+        if (podcasts.isEmpty() && interpretation.searchType == "bytitle") {
+            DiagnosticLogger.i(TAG, "bytitle returned empty, falling back to byterm")
             val fallbackResponse = podcastIndexApi.searchByTerm(interpretation.query, MAX_SEARCH_RESULTS)
             podcasts = fallbackResponse.feeds.map { it.toPodcast() }
             DiagnosticLogger.i(TAG, "Fallback byterm returned ${podcasts.size} podcasts")
         }
 
-        return podcasts
+        // Fetch episodes from top podcasts
+        val episodes = fetchEpisodesFromPodcasts(podcasts)
+
+        return Pair(podcasts, episodes)
     }
 
     /**
@@ -245,6 +312,23 @@ Respond with ONLY a JSON object with fields: search_type, query, explanation"""
         podcastId = podcast.podcastIndexId,
         podcastTitle = podcast.title,
         podcastImageUrl = podcast.imageUrl
+    )
+
+    /**
+     * GH#38: Convert PersonSearchItem (from byperson endpoint) to AISearchEpisode.
+     * PersonSearchItem has embedded feed metadata so we don't need a separate Podcast object.
+     */
+    private fun PersonSearchItem.toAISearchEpisode(): AISearchEpisode = AISearchEpisode(
+        id = id,
+        title = title,
+        description = description,
+        audioUrl = enclosureUrl,
+        audioDuration = duration,
+        publishedAt = datePublished?.let { it * 1000 }, // Convert seconds to milliseconds
+        imageUrl = image ?: feedImage,
+        podcastId = feedId,
+        podcastTitle = feedTitle ?: "Unknown Podcast",
+        podcastImageUrl = feedImage
     )
 
     private data class QueryInterpretation(val searchType: String, val query: String, val explanation: String)

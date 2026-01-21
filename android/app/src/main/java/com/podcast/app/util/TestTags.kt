@@ -163,6 +163,10 @@ object TestTags {
     const val AI_SEARCH_PODCASTS = "ai_search_podcasts"
     const val AI_SEARCH_CLEAR = "ai_search_clear"
 
+    // AI Search Episode Tiles (GH#38)
+    const val AI_EPISODE_TILE = "ai_episode_tile"
+    const val AI_PODCAST_TILE = "ai_podcast_tile"
+
     // Podcast Feed Screen (GH#32)
     const val PODCAST_FEED_SCREEN = "podcast_feed_screen"
     const val PODCAST_FEED_TITLE = "podcast_feed_title"

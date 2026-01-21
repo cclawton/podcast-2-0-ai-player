@@ -105,3 +105,46 @@ data class RecentEpisodesResponse(
     @SerialName("max") val max: Int? = null,
     @SerialName("description") val description: String? = null
 )
+
+/**
+ * Response model for the /search/byperson endpoint.
+ * Unlike other search endpoints that return feeds (podcasts),
+ * byperson returns items (episodes) where the person appears.
+ */
+@Serializable
+data class PersonSearchResponse(
+    @SerialName("status") val status: String,
+    @SerialName("items") val items: List<PersonSearchItem> = emptyList(),
+    @SerialName("count") val count: Int = 0,
+    @SerialName("description") val description: String? = null
+)
+
+/**
+ * Episode item from the byperson search endpoint.
+ * Contains additional feed metadata inline with each episode.
+ */
+@Serializable
+data class PersonSearchItem(
+    @SerialName("id") val id: Long,
+    @SerialName("title") val title: String,
+    @SerialName("description") val description: String? = null,
+    @SerialName("datePublished") val datePublished: Long? = null,
+    @SerialName("enclosureUrl") val enclosureUrl: String,
+    @SerialName("enclosureType") val enclosureType: String? = null,
+    @SerialName("enclosureLength") val enclosureLength: Long? = null,
+    @SerialName("duration") val duration: Int? = null,
+    @SerialName("explicit") val explicit: Int = 0,
+    @SerialName("guid") val guid: String? = null,
+    @SerialName("feedId") val feedId: Long,
+    @SerialName("feedTitle") val feedTitle: String? = null,
+    @SerialName("feedUrl") val feedUrl: String? = null,
+    @SerialName("feedImage") val feedImage: String? = null,
+    @SerialName("feedLanguage") val feedLanguage: String? = null,
+    @SerialName("feedAuthor") val feedAuthor: String? = null,
+    @SerialName("image") val image: String? = null,
+    @SerialName("link") val link: String? = null,
+    @SerialName("season") val season: Int? = null,
+    @SerialName("episode") val episode: Int? = null,
+    @SerialName("transcripts") val transcripts: List<TranscriptInfo>? = null,
+    @SerialName("chapters") val chapters: ChaptersInfo? = null
+)

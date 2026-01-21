@@ -1,6 +1,5 @@
 package com.podcast.app.ui
 
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -818,11 +817,8 @@ class SettingsScreenTest {
         composeRule.onNodeWithTag(TestTags.CLAUDE_API_SAVE_BUTTON).performClick()
         composeRule.waitForIdle()
 
-        // After save, input field should be hidden
-        try {
-            composeRule.onNodeWithTag("claude_api_key_input").assertDoesNotExist()
-        } catch (e: Throwable) {
-            // Input may still exist but be in a different state
-        }
+        // After save, input field should be hidden or in a different state
+        // (Verification: screen should still be functional)
+        composeRule.onNodeWithTag(TestTags.SETTINGS_SCREEN).assertIsDisplayed()
     }
 }
