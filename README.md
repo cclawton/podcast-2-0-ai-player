@@ -21,7 +21,9 @@ A privacy-first, GrapheneOS-optimized podcast player with AI-powered natural lan
 
 ## Features
 
-![Demo](screenshots/demo.gif)
+<p align="center">
+  <img src="screenshots/demo.gif" width="400" alt="Demo">
+</p>
 
 ### Core Podcast Features
 - **Podcast Index Integration** - Search, discover, and subscribe to podcasts
