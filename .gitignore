@@ -60,3 +60,5 @@ credentials.json
 .env
 .env.local
 android/gradle.properties
+# Large video source files
+screenshots/*.mov
