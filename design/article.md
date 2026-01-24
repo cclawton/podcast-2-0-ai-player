@@ -18,28 +18,61 @@ The output included complete SQLite schemas with proper indexing, 15 MCP tools f
 
 With the architecture locked, I turned to [Claude-Flow](https://github.com/ruvnet/claude-flow) for implementation. Claude-Flow orchestrates multiple AI agents working in parallel—specialized coders, testers, and reviewers operating as a coordinated swarm.
 
-The hierarchical topology kept agents focused. A coordinator agent managed task distribution while specialized workers tackled their domains: one agent implemented Room database entities, another built the Podcast Index API client, a third created ExoPlayer playback controls. Anti-drift configuration prevented the chaos that can happen when multiple agents work on the same codebase.
+The hierarchical topology kept agents focused. A coordinator agent managed task distribution while specialized workers tackled their domains: one agent implemented Room database entities, another built the [Podcast Index](https://podcastindex.org) API client, a third created ExoPlayer playback controls. Anti-drift configuration prevented the chaos that can happen when multiple agents work on the same codebase.
 
-## Micro-Issue Management: Beads for Granular Tracking
+## Context Management: Beads for AI-Scale Issue Tracking
 
-[Beads](https://github.com/steveyegge/beads), a micro-issue tracker, became essential for managing the granular tasks AI agents excel at. Each small fix—"Episode dates displaying incorrectly (year 580012)"—got its own tracked issue. This created a clear audit trail and prevented agents from losing context on what needed fixing.
+[Beads](https://github.com/steveyegge/beads), a micro-issue tracker, solved a critical problem: **context management for AI agents**. LLMs have finite context windows, and traditional issue trackers create bloated tickets that waste precious tokens. Beads takes the opposite approach—tiny, focused issues that AI agents can consume without context overflow.
 
-Looking at my Beads history, I see the journey: database schema implementation, API client with secure HMAC authentication, ExoPlayer integration, download manager for offline listening, Espresso test suites, and finally the AI-powered natural language search using Claude Haiku.
+Each Beads issue is a compact unit: a short title, minimal description, and labels. When an agent needs to fix "Episode dates displaying incorrectly (year 580012)," it gets exactly that context—nothing more. Beads also supports **automatic compacting**, condensing resolved issues into summaries so the active working set stays lean. This let me track 50+ granular tasks without overwhelming agent context windows.
 
-## The Results: 50+ Commits, Real Features
+## AI-Powered Search: The MCP Integration
 
-The app now has working podcast search and subscription, background playback, episode downloads for offline listening, playback speed controls, and—most ambitiously—AI-powered natural language search. When I type "Find me podcasts about quantum computing," Claude interprets this, constructs the right Podcast Index API query, and returns relevant results.
+The most ambitious feature is natural language search powered by my [PodcastIndex MCP Server](https://github.com/cclawton/podcastindex-mcp-server). Here's how it works:
 
-Along the way, AI agents fixed real bugs: WorkManager foreground service types for Android 14+, notification rate limiting, HTML stripping from episode descriptions, and proper image fallback handling. These aren't toy problems—they're the same issues any production app faces.
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   User Query    │     │   Claude LLM    │     │   MCP Server    │     │  Podcast Index  │
+│                 │────▶│                 │────▶│                 │────▶│      API        │
+│ "Find podcasts  │     │  Interprets     │     │  Tool: search   │     │                 │
+│  about AI"      │     │  intent         │     │  _podcasts()    │     │ podcastindex.org│
+└─────────────────┘     └─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                        │
+                                                        ▼
+                              ┌──────────────────────────────────────────┐
+                              │  Structured Results → Android App UI     │
+                              └──────────────────────────────────────────┘
+```
+
+The [Podcast Index](https://podcastindex.org) provides an open, community-driven podcast directory—no Big Tech gatekeepers. My MCP server wraps their API with tools that Claude can invoke naturally.
+
+## What's Working, What's Not
+
+**Completed:** Podcast search and subscription, episode streaming, downloads for offline listening, playback speed controls (0.5x-3.0x), AI-powered natural language search, Claude API integration, encrypted credential storage.
+
+**Outstanding issues still open:**
+- **[GH#28](https://github.com/cclawton/podcast-2-0-ai-player/issues/28)**: Background playback stops after ~1 minute (critical)
+- **[GH#38](https://github.com/cclawton/podcast-2-0-ai-player/issues/38)**: Single episode download from search results
+- **[GH#22](https://github.com/cclawton/podcast-2-0-ai-player/issues/22)**: Android Auto support
+- **[GH#8](https://github.com/cclawton/podcast-2-0-ai-player/issues/8)**: Full MCP server integration
+
+## Try It Yourself
+
+**Download APKs** from the [GitHub Releases](https://github.com/cclawton/podcast-2-0-ai-player/releases) page. The latest alpha (v0.1.0-alpha.34) includes all current features.
+
+**Links:**
+- [Source Code](https://github.com/cclawton/podcast-2-0-ai-player)
+- [PodcastIndex MCP Server](https://github.com/cclawton/podcastindex-mcp-server)
+- [Podcast Index API](https://podcastindex.org)
+- [Claude-Flow](https://github.com/ruvnet/claude-flow)
+- [Beads Issue Tracker](https://github.com/steveyegge/beads)
 
 ## Lessons Learned
 
-AI-assisted development isn't magic. It requires clear architecture upfront (thank you, Perplexity), structured task decomposition (thank you, Beads), and proper orchestration (thank you, Claude-Flow). The human still makes architectural decisions and reviews output. But the execution speed is remarkable.
+AI-assisted development requires clear architecture upfront, structured task decomposition with context-aware tools like Beads, and proper orchestration via Claude-Flow. The human still makes architectural decisions and reviews output. But the execution speed is remarkable.
 
-This project is experimental and incomplete—background playback still has issues, and not all planned features are implemented. But as a proof of concept for AI-assisted development at scale, it's exceeded my expectations.
-
-The code is open source. The architecture documents are included. If you want to see what AI-built software looks like today, clone the repo and judge for yourself.
+This project is experimental and incomplete—but as a proof of concept for AI-assisted development at scale, it's exceeded my expectations.
 
 ---
 
-*Built with [Claude](https://anthropic.com), [Claude-Flow](https://github.com/ruvnet/claude-flow), and [Beads](https://github.com/steveyegge/beads). No tracking. No analytics. Just podcasts—and an experiment in the future of software development.*
+*Built with [Claude](https://anthropic.com), [Claude-Flow](https://github.com/ruvnet/claude-flow), [Beads](https://github.com/steveyegge/beads), and the [Podcast Index](https://podcastindex.org). No tracking. No analytics. Just podcasts.*
