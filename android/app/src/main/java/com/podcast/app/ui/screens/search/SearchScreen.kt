@@ -28,11 +28,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RssFeed
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -69,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.podcast.app.api.claude.AISearchService
+import com.podcast.app.data.local.entities.DownloadStatus
 import com.podcast.app.ui.Screen
 import com.podcast.app.ui.components.EmptyState
 import com.podcast.app.ui.components.LoadingState
@@ -110,6 +114,9 @@ fun SearchScreen(
 
     // GH#35: Determine if AI search has active results
     val hasAiResults = aiSearchResults.isNotEmpty() || aiEpisodeResults.isNotEmpty()
+
+    // GH#38: Episode download states for AI search results
+    val episodeDownloadStates by viewModel.episodeDownloadStates.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -173,6 +180,16 @@ fun SearchScreen(
                     }
                 },
                 actions = {
+                    // MCP Explorer button (GH#41)
+                    IconButton(
+                        onClick = { navController.navigate(Screen.McpWidget.route) },
+                        modifier = Modifier.testTag("mcp_explorer_button")
+                    ) {
+                        Icon(
+                            Icons.Default.Explore,
+                            contentDescription = "MCP Explorer"
+                        )
+                    }
                     // AI Search button (GH#30)
                     if (isAiAvailable) {
                         IconButton(
@@ -402,10 +419,18 @@ fun SearchScreen(
                                     }
 
                                     items(aiEpisodeResults.take(3), key = { it.id }) { episode ->
+                                        val downloadState = episodeDownloadStates[episode.id]?.status.toAIEpisodeDownloadState()
                                         AIEpisodeCard(
                                             episode = episode,
-                                            onPlayClick = { /* TODO: Play episode */ },
-                                            onDownloadClick = { /* TODO: Download episode */ }
+                                            onPlayClick = {
+                                                // GH#38: Navigate to player with episode
+                                                val localId = viewModel.getLocalEpisodeId(episode.id)
+                                                if (localId != null) {
+                                                    navController.navigate(Screen.Player.createRoute(localId))
+                                                }
+                                            },
+                                            onDownloadClick = { viewModel.onAiEpisodeDownloadClick(episode) },
+                                            downloadState = downloadState
                                         )
                                     }
                                 }
@@ -425,10 +450,17 @@ fun SearchScreen(
                                     }
 
                                     items(aiEpisodeResults, key = { it.id }) { episode ->
+                                        val downloadState = episodeDownloadStates[episode.id]?.status.toAIEpisodeDownloadState()
                                         AIEpisodeCard(
                                             episode = episode,
-                                            onPlayClick = { /* TODO: Play episode */ },
-                                            onDownloadClick = { /* TODO: Download episode */ }
+                                            onPlayClick = {
+                                                val localId = viewModel.getLocalEpisodeId(episode.id)
+                                                if (localId != null) {
+                                                    navController.navigate(Screen.Player.createRoute(localId))
+                                                }
+                                            },
+                                            onDownloadClick = { viewModel.onAiEpisodeDownloadClick(episode) },
+                                            downloadState = downloadState
                                         )
                                     }
                                 }
@@ -477,10 +509,17 @@ fun SearchScreen(
                                     }
 
                                     items(aiEpisodeResults, key = { it.id }) { episode ->
+                                        val downloadState = episodeDownloadStates[episode.id]?.status.toAIEpisodeDownloadState()
                                         AIEpisodeCard(
                                             episode = episode,
-                                            onPlayClick = { /* TODO: Play episode */ },
-                                            onDownloadClick = { /* TODO: Download episode */ }
+                                            onPlayClick = {
+                                                val localId = viewModel.getLocalEpisodeId(episode.id)
+                                                if (localId != null) {
+                                                    navController.navigate(Screen.Player.createRoute(localId))
+                                                }
+                                            },
+                                            onDownloadClick = { viewModel.onAiEpisodeDownloadClick(episode) },
+                                            downloadState = downloadState
                                         )
                                     }
                                 }
@@ -731,16 +770,21 @@ private fun SubscribeConfirmationDialog(
 /**
  * GH#35: Card component for displaying AI search episode results.
  * Shows episode title, podcast name, duration, and play/download actions.
+ *
+ * podcast-test-search-download: Added test tags for download button states.
  */
 @Composable
 private fun AIEpisodeCard(
     episode: AISearchService.AISearchEpisode,
     onPlayClick: () -> Unit,
     onDownloadClick: () -> Unit,
+    downloadState: AIEpisodeDownloadState = AIEpisodeDownloadState.NOT_DOWNLOADED,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(TestTags.AI_EPISODE_TILE),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -799,8 +843,11 @@ private fun AIEpisodeCard(
                 }
             }
 
-            // Action buttons
-            IconButton(onClick = onPlayClick) {
+            // Action buttons with download state handling
+            IconButton(
+                onClick = onPlayClick,
+                modifier = Modifier.testTag(TestTags.AI_EPISODE_PLAY_BUTTON)
+            ) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Play",
@@ -808,14 +855,69 @@ private fun AIEpisodeCard(
                 )
             }
 
-            IconButton(onClick = onDownloadClick) {
-                Icon(
-                    imageVector = Icons.Default.Download,
-                    contentDescription = "Download",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            // Download button with state-dependent display
+            when (downloadState) {
+                AIEpisodeDownloadState.DOWNLOADING -> {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag(TestTags.AI_EPISODE_DOWNLOADING),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .testTag(TestTags.AI_EPISODE_DOWNLOAD_PROGRESS),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                }
+                AIEpisodeDownloadState.DOWNLOADED -> {
+                    IconButton(
+                        onClick = { /* Already downloaded - could show options */ },
+                        modifier = Modifier.testTag(TestTags.AI_EPISODE_DOWNLOAD_COMPLETE)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Downloaded",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                AIEpisodeDownloadState.NOT_DOWNLOADED -> {
+                    IconButton(
+                        onClick = onDownloadClick,
+                        modifier = Modifier.testTag(TestTags.AI_EPISODE_DOWNLOAD_BUTTON)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Download",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+/**
+ * Download state for AI episode cards.
+ */
+enum class AIEpisodeDownloadState {
+    NOT_DOWNLOADED,
+    DOWNLOADING,
+    DOWNLOADED
+}
+
+/**
+ * GH#38: Convert DownloadStatus to AIEpisodeDownloadState for UI display.
+ */
+private fun DownloadStatus?.toAIEpisodeDownloadState(): AIEpisodeDownloadState {
+    return when (this) {
+        DownloadStatus.COMPLETED -> AIEpisodeDownloadState.DOWNLOADED
+        DownloadStatus.IN_PROGRESS, DownloadStatus.PENDING -> AIEpisodeDownloadState.DOWNLOADING
+        DownloadStatus.FAILED, DownloadStatus.CANCELLED, null -> AIEpisodeDownloadState.NOT_DOWNLOADED
     }
 }
 

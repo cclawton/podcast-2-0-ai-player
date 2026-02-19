@@ -2,8 +2,14 @@ package com.podcast.app.ui.screens.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.podcast.app.api.claude.AISearchService
+import com.podcast.app.data.local.dao.DownloadDao
+import com.podcast.app.data.local.entities.Download
+import com.podcast.app.data.local.entities.DownloadStatus
+import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.data.repository.PodcastRepository
+import com.podcast.app.download.DownloadManager
 import com.podcast.app.privacy.NetworkFeature
 import com.podcast.app.privacy.PrivacyManager
 import com.podcast.app.util.DiagnosticLogger
@@ -16,14 +22,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.podcast.app.api.claude.AISearchService
 import javax.inject.Inject
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val repository: PodcastRepository,
     private val privacyManager: PrivacyManager,
-    private val aiSearchService: AISearchService
+    private val aiSearchService: AISearchService,
+    private val downloadManager: DownloadManager,
+    private val downloadDao: DownloadDao
 ) : ViewModel() {
 
     companion object {
@@ -101,9 +108,53 @@ class SearchViewModel @Inject constructor(
     val isAiAvailable: Boolean
         get() = aiSearchService.isApiKeyConfigured()
 
+    // ================================
+    // GH#38: Episode Download State (AI Search Download)
+    // ================================
+
+    /**
+     * Map of episode index ID -> Download state.
+     * Tracks download progress for episodes in AI search results.
+     */
+    private val _episodeDownloadStates = MutableStateFlow<Map<Long, Download>>(emptyMap())
+    val episodeDownloadStates: StateFlow<Map<Long, Download>> = _episodeDownloadStates.asStateFlow()
+
+    /**
+     * Map of episode index ID -> local database Episode ID.
+     * Used to track which AI search episodes have been saved to local DB.
+     */
+    private val _savedEpisodeIds = MutableStateFlow<Map<Long, Long>>(emptyMap())
+    val savedEpisodeIds: StateFlow<Map<Long, Long>> = _savedEpisodeIds.asStateFlow()
+
     init {
         loadTrending()
         initializeAiSearchState()
+        observeDownloadStates()
+    }
+
+    /**
+     * GH#38: Observe download states for all episodes.
+     * Updates UI when download progress changes.
+     */
+    private fun observeDownloadStates() {
+        viewModelScope.launch {
+            downloadDao.getAllDownloadsFlow().collect { downloads ->
+                // Create map of episode ID -> Download
+                val downloadMap = downloads.associateBy { it.episodeId }
+
+                // Match against saved episode IDs to update AI search episode states
+                val savedIds = _savedEpisodeIds.value
+                val aiEpisodeDownloadStates = mutableMapOf<Long, Download>()
+
+                savedIds.forEach { (episodeIndexId, localEpisodeId) ->
+                    downloadMap[localEpisodeId]?.let { download ->
+                        aiEpisodeDownloadStates[episodeIndexId] = download
+                    }
+                }
+
+                _episodeDownloadStates.value = aiEpisodeDownloadStates
+            }
+        }
     }
 
     /**
@@ -363,5 +414,98 @@ class SearchViewModel @Inject constructor(
 
     fun clearAiError() {
         _aiError.value = null
+    }
+
+    // ================================
+    // GH#38: Episode Download Actions
+    // ================================
+
+    /**
+     * Download an episode from AI search results.
+     * Saves the podcast and episode to local DB, then starts download.
+     *
+     * @param episode The AI search episode to download
+     */
+    fun downloadAiSearchEpisode(episode: AISearchService.AISearchEpisode) {
+        viewModelScope.launch {
+            DiagnosticLogger.i(TAG, "downloadAiSearchEpisode: ${episode.title}")
+
+            // First, save the episode to local DB
+            val result = repository.saveEpisodeForDownload(
+                podcastIndexId = episode.podcastId,
+                podcastTitle = episode.podcastTitle,
+                podcastImageUrl = episode.podcastImageUrl,
+                podcastFeedUrl = null,  // Not available from AI search
+                episodeIndexId = episode.id,
+                episodeTitle = episode.title,
+                episodeDescription = episode.description,
+                episodeAudioUrl = episode.audioUrl,
+                episodeDuration = episode.audioDuration,
+                episodePublishedAt = episode.publishedAt,
+                episodeImageUrl = episode.imageUrl
+            )
+
+            result.onSuccess { savedEpisode ->
+                // Track the mapping between index ID and local DB ID
+                _savedEpisodeIds.value = _savedEpisodeIds.value + (episode.id to savedEpisode.id)
+
+                // Start the download
+                downloadManager.downloadEpisode(savedEpisode)
+                DiagnosticLogger.i(TAG, "Started download for episode: ${savedEpisode.id}")
+            }.onFailure { error ->
+                DiagnosticLogger.e(TAG, "Failed to save episode for download: ${error.message}")
+                _aiError.value = "Failed to start download: ${error.message}"
+            }
+        }
+    }
+
+    /**
+     * Handle download button click for AI search episode.
+     * Behavior depends on current download state:
+     * - Not started: Start download
+     * - In progress/pending: Cancel download
+     * - Completed: Delete download
+     * - Failed: Retry download
+     */
+    fun onAiEpisodeDownloadClick(episode: AISearchService.AISearchEpisode) {
+        val downloadState = _episodeDownloadStates.value[episode.id]
+        val savedEpisodeId = _savedEpisodeIds.value[episode.id]
+
+        viewModelScope.launch {
+            when (downloadState?.status) {
+                DownloadStatus.COMPLETED -> {
+                    // Delete the download
+                    savedEpisodeId?.let { downloadManager.deleteDownload(it) }
+                }
+                DownloadStatus.IN_PROGRESS, DownloadStatus.PENDING -> {
+                    // Cancel the download
+                    savedEpisodeId?.let { downloadManager.cancelDownload(it) }
+                }
+                DownloadStatus.FAILED -> {
+                    // Retry the download
+                    savedEpisodeId?.let { downloadManager.retryDownload(it) }
+                }
+                DownloadStatus.CANCELLED, null -> {
+                    // Start a new download
+                    downloadAiSearchEpisode(episode)
+                }
+            }
+        }
+    }
+
+    /**
+     * Get the local file path for a downloaded episode, if available.
+     * Used for playing downloaded episodes from search results.
+     */
+    suspend fun getDownloadedFilePath(episodeIndexId: Long): String? {
+        val savedEpisodeId = _savedEpisodeIds.value[episodeIndexId] ?: return null
+        return downloadManager.getLocalFilePath(savedEpisodeId)
+    }
+
+    /**
+     * Get the local episode ID for an AI search episode, if saved.
+     */
+    fun getLocalEpisodeId(episodeIndexId: Long): Long? {
+        return _savedEpisodeIds.value[episodeIndexId]
     }
 }

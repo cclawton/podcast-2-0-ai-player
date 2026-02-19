@@ -128,6 +128,9 @@ object TestTags {
     // LLM Test (GH#31)
     const val LLM_TEST_BUTTON = "test_llm_button"
     const val LLM_TEST_RESULTS = "llm_test_results"
+    const val LLM_TEST_LOADING = "llm_test_loading"
+    const val LLM_TEST_ERROR = "llm_test_error"
+    const val LLM_TEST_QA_ITEM = "llm_test_qa_item"
 
     // Claude API Save (GH#34)
     const val CLAUDE_API_SAVE_BUTTON = "claude_api_save_button"
@@ -175,4 +178,25 @@ object TestTags {
     const val PODCAST_FEED_SUBSCRIBE_BUTTON = "podcast_feed_subscribe_button"
     const val PODCAST_FEED_EPISODE_ITEM = "podcast_feed_episode_item"
     const val PODCAST_FEED_DOWNLOAD_BUTTON = "podcast_feed_download_button"
+
+    // AI Search Episode Download (GH#38, podcast-test-search-download)
+    const val AI_EPISODE_DOWNLOAD_BUTTON = "ai_episode_download_button"
+    const val AI_EPISODE_PLAY_BUTTON = "ai_episode_play_button"
+    const val AI_EPISODE_DOWNLOAD_PROGRESS = "ai_episode_download_progress"
+    const val AI_EPISODE_DOWNLOAD_COMPLETE = "ai_episode_download_complete"
+    const val AI_EPISODE_DOWNLOADING = "ai_episode_downloading"
+
+    // MCP Widget Screen (Beads: podcast-test-mcp-widget)
+    const val MCP_WIDGET_SCREEN = "mcp_widget_screen"
+    const val MCP_WIDGET_WEBVIEW = "mcp_widget_webview"
+    const val MCP_WIDGET_LOADING = "mcp_widget_loading"
+    const val MCP_WIDGET_ERROR = "mcp_widget_error"
+    const val MCP_WIDGET_RETRY = "mcp_widget_retry"
+    const val MCP_WIDGET_SEARCH_TABLE = "mcp_widget_search_table"
+    const val MCP_WIDGET_PODCAST_ROW = "mcp_widget_podcast_row"
+    const val MCP_WIDGET_EPISODE_ROW = "mcp_widget_episode_row"
+    const val MCP_WIDGET_PLAY_BUTTON = "mcp_widget_play_button"
+    const val MCP_WIDGET_STATUS = "mcp_widget_status"
+    const val MCP_WIDGET_OFFLINE_BANNER = "mcp_widget_offline_banner"
+    const val MCP_WIDGET_CACHED_CONTENT = "mcp_widget_cached_content"
 }

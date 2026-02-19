@@ -365,4 +365,106 @@ class PodcastRepository @Inject constructor(
             episodeNumber = episode
         )
     }
+
+    /**
+     * GH#38: Save a single episode from AI search for download without requiring full subscription.
+     *
+     * This enables "try before you subscribe" UX:
+     * 1. Saves the podcast to DB if not already present (isSubscribed=false)
+     * 2. Saves the episode to DB
+     * 3. Returns the saved Episode entity with its database ID
+     *
+     * The podcast is added to the library in a "partial" state - visible in downloads
+     * but not in the main library list until the user explicitly subscribes.
+     *
+     * @param podcastIndexId The Podcast Index feed ID
+     * @param podcastTitle The podcast title
+     * @param podcastImageUrl The podcast image URL (nullable)
+     * @param podcastFeedUrl The podcast RSS feed URL
+     * @param episodeIndexId The Podcast Index episode ID
+     * @param episodeTitle The episode title
+     * @param episodeDescription The episode description (nullable)
+     * @param episodeAudioUrl The episode audio URL
+     * @param episodeDuration Duration in seconds (nullable)
+     * @param episodePublishedAt Unix timestamp in milliseconds (nullable)
+     * @param episodeImageUrl Episode-specific image URL (nullable)
+     * @return Result containing the saved Episode on success
+     */
+    suspend fun saveEpisodeForDownload(
+        podcastIndexId: Long,
+        podcastTitle: String,
+        podcastImageUrl: String?,
+        podcastFeedUrl: String?,
+        episodeIndexId: Long,
+        episodeTitle: String,
+        episodeDescription: String?,
+        episodeAudioUrl: String,
+        episodeDuration: Int?,
+        episodePublishedAt: Long?,
+        episodeImageUrl: String?
+    ): Result<Episode> = withContext(Dispatchers.IO) {
+        try {
+            DiagnosticLogger.i(TAG, "saveEpisodeForDownload: episodeIndexId=$episodeIndexId, podcastIndexId=$podcastIndexId")
+
+            // Check if episode already exists by its index ID
+            val existingEpisode = episodeDao.getEpisodeByIndexId(episodeIndexId)
+            if (existingEpisode != null) {
+                DiagnosticLogger.d(TAG, "Episode already exists: id=${existingEpisode.id}")
+                return@withContext Result.success(existingEpisode)
+            }
+
+            // Check if podcast exists, create if not
+            var podcast = podcastDao.getPodcastByIndexId(podcastIndexId)
+            val podcastId: Long
+
+            if (podcast == null) {
+                // Create podcast without subscription
+                podcast = Podcast(
+                    podcastIndexId = podcastIndexId,
+                    title = podcastTitle,
+                    feedUrl = podcastFeedUrl ?: "",
+                    imageUrl = podcastImageUrl,
+                    description = null,
+                    language = "en",
+                    explicit = false,
+                    author = null,
+                    episodeCount = 0,
+                    websiteUrl = null,
+                    podcastGuid = null,
+                    isSubscribed = false  // Not subscribed, just saved for download
+                )
+                podcastId = podcastDao.insertPodcast(podcast)
+                DiagnosticLogger.d(TAG, "Created podcast for download: id=$podcastId")
+            } else {
+                podcastId = podcast.id
+                DiagnosticLogger.d(TAG, "Using existing podcast: id=$podcastId")
+            }
+
+            // Create and save episode
+            val episode = Episode(
+                episodeIndexId = episodeIndexId,
+                podcastId = podcastId,
+                title = episodeTitle,
+                description = episodeDescription,
+                audioUrl = episodeAudioUrl,
+                audioDuration = episodeDuration,
+                audioSize = null,  // Will be determined during download
+                audioType = "audio/mpeg",
+                publishedAt = episodePublishedAt,
+                episodeGuid = null,
+                explicit = false,
+                link = null,
+                imageUrl = episodeImageUrl
+            )
+
+            val episodeId = episodeDao.insertEpisode(episode)
+            val savedEpisode = episode.copy(id = episodeId)
+            DiagnosticLogger.i(TAG, "Saved episode for download: id=$episodeId")
+
+            Result.success(savedEpisode)
+        } catch (e: Exception) {
+            DiagnosticLogger.e(TAG, "Failed to save episode for download: ${e.message}")
+            Result.failure(Exception("Failed to save episode: ${e.message}"))
+        }
+    }
 }
