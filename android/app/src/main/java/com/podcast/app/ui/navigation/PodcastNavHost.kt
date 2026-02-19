@@ -22,6 +22,7 @@ import com.podcast.app.ui.navigation.NavHostViewModel
 import com.podcast.app.ui.screens.onboarding.OnboardingScreen
 import com.podcast.app.ui.screens.player.PlayerScreen
 import com.podcast.app.ui.screens.feed.PodcastFeedScreen
+import com.podcast.app.ui.screens.mcpwidget.McpWidgetScreen
 import com.podcast.app.ui.screens.search.SearchScreen
 import com.podcast.app.ui.screens.settings.SettingsScreen
 
@@ -40,6 +41,7 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")
     data object Diagnostics : Screen("diagnostics")
     data object Downloads : Screen("downloads")
+    data object McpWidget : Screen("mcp_widget")
 }
 
 @Composable
@@ -140,6 +142,11 @@ fun PodcastNavHost(
                 )
             ) {
                 PodcastFeedScreen(navController = navController)
+            }
+
+            // GH#41: MCP widget screen
+            composable(Screen.McpWidget.route) {
+                McpWidgetScreen(navController = navController)
             }
         }
     }

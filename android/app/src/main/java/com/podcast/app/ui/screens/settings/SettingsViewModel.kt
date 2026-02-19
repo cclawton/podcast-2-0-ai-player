@@ -2,10 +2,10 @@ package com.podcast.app.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.podcast.app.api.CredentialManager
 import com.podcast.app.api.claude.ClaudeApiClient
 import com.podcast.app.api.claude.ClaudeApiKeyManager
 import com.podcast.app.api.claude.LLMTestResult
-import com.podcast.app.api.claude.QueryResponse
 import com.podcast.app.privacy.OperationalMode
 import com.podcast.app.privacy.PrivacyManager
 import com.podcast.app.privacy.PrivacyPreset
@@ -27,7 +27,8 @@ class SettingsViewModel @Inject constructor(
     private val privacyManager: PrivacyManager,
     private val syncManager: SyncManager,
     private val claudeApiKeyManager: ClaudeApiKeyManager,
-    private val claudeApiClient: ClaudeApiClient
+    private val claudeApiClient: ClaudeApiClient,
+    private val credentialManager: CredentialManager
 ) : ViewModel() {
 
     val settings: StateFlow<PrivacySettings> = privacyManager.settings
@@ -74,12 +75,30 @@ class SettingsViewModel @Inject constructor(
     private val _isEditingApiKey = MutableStateFlow(false)
     val isEditingApiKey: StateFlow<Boolean> = _isEditingApiKey.asStateFlow()
 
+    // Podcast Index API credentials state (podcast-253, podcast-ag4)
+    private val _podcastIndexApiKey = MutableStateFlow("")
+    val podcastIndexApiKey: StateFlow<String> = _podcastIndexApiKey.asStateFlow()
+
+    private val _podcastIndexApiSecret = MutableStateFlow("")
+    val podcastIndexApiSecret: StateFlow<String> = _podcastIndexApiSecret.asStateFlow()
+
+    private val _isPodcastIndexSaved = MutableStateFlow(false)
+    val isPodcastIndexSaved: StateFlow<Boolean> = _isPodcastIndexSaved.asStateFlow()
+
+    private val _isEditingPodcastIndex = MutableStateFlow(false)
+    val isEditingPodcastIndex: StateFlow<Boolean> = _isEditingPodcastIndex.asStateFlow()
+
+    private val _podcastIndexValidationError = MutableStateFlow<String?>(null)
+    val podcastIndexValidationError: StateFlow<String?> = _podcastIndexValidationError.asStateFlow()
+
     init {
         refreshOperationalMode()
         // Initialize sync manager
         syncManager.initialize()
         // Load Claude API key and check saved state
         loadClaudeApiKey()
+        // Load Podcast Index credentials state
+        loadPodcastIndexCredentials()
     }
 
     private fun loadClaudeApiKey() {
@@ -234,12 +253,12 @@ class SettingsViewModel @Inject constructor(
                 _llmTestResult.value = testResult
                 // Also update connection status
                 _connectionTestResult.value = testResult.connectionSuccess
-                _connectionTestMessage.value = testResult.connectionMessage
+                _connectionTestMessage.value = testResult.errorMessage
             }.onFailure { e ->
                 _llmTestResult.value = LLMTestResult(
                     connectionSuccess = false,
-                    connectionMessage = e.message ?: "Test failed",
-                    queryResponses = emptyList()
+                    errorMessage = e.message ?: "Test failed",
+                    queries = emptyList()
                 )
             }
 
@@ -249,6 +268,91 @@ class SettingsViewModel @Inject constructor(
 
     fun clearLlmTestResult() {
         _llmTestResult.value = null
+    }
+
+    // Podcast Index credential methods (podcast-253, podcast-ag4)
+
+    private fun loadPodcastIndexCredentials() {
+        _isPodcastIndexSaved.value = credentialManager.hasCredentials()
+        _isEditingPodcastIndex.value = false
+        // Don't pre-populate fields with saved values for security
+        _podcastIndexApiKey.value = ""
+        _podcastIndexApiSecret.value = ""
+    }
+
+    /**
+     * Update the API key field value (but do not save to storage yet).
+     */
+    fun updatePodcastIndexApiKey(key: String) {
+        _podcastIndexApiKey.value = key
+        _podcastIndexValidationError.value = null
+    }
+
+    /**
+     * Update the API secret field value (but do not save to storage yet).
+     */
+    fun updatePodcastIndexApiSecret(secret: String) {
+        _podcastIndexApiSecret.value = secret
+        _podcastIndexValidationError.value = null
+    }
+
+    /**
+     * Save the Podcast Index credentials to secure storage.
+     */
+    fun savePodcastIndexCredentials() {
+        val key = _podcastIndexApiKey.value
+        val secret = _podcastIndexApiSecret.value
+
+        // Validate credentials before saving
+        val validationError = credentialManager.validateCredentialsForUser(key, secret)
+        if (validationError != null) {
+            _podcastIndexValidationError.value = validationError
+            return
+        }
+
+        val success = credentialManager.setCredentials(key, secret)
+        if (success) {
+            _isPodcastIndexSaved.value = true
+            _isEditingPodcastIndex.value = false
+            // Clear the fields after saving for security
+            _podcastIndexApiKey.value = ""
+            _podcastIndexApiSecret.value = ""
+            _podcastIndexValidationError.value = null
+        } else {
+            _podcastIndexValidationError.value = "Failed to save credentials securely"
+        }
+    }
+
+    /**
+     * Enter edit mode for Podcast Index credentials.
+     */
+    fun startEditingPodcastIndex() {
+        _isEditingPodcastIndex.value = true
+        // Clear fields when entering edit mode
+        _podcastIndexApiKey.value = ""
+        _podcastIndexApiSecret.value = ""
+    }
+
+    /**
+     * Clear stored Podcast Index credentials.
+     */
+    fun clearPodcastIndexCredentials() {
+        credentialManager.clearCredentials()
+        _podcastIndexApiKey.value = ""
+        _podcastIndexApiSecret.value = ""
+        _isPodcastIndexSaved.value = false
+        _isEditingPodcastIndex.value = false
+        _podcastIndexValidationError.value = null
+    }
+
+    /**
+     * Cancel editing Podcast Index credentials.
+     */
+    fun cancelEditingPodcastIndex() {
+        _isEditingPodcastIndex.value = false
+        _podcastIndexApiKey.value = ""
+        _podcastIndexApiSecret.value = ""
+        _podcastIndexValidationError.value = null
     }
 
     fun updateAutoDownloadOnWifiOnly(enabled: Boolean) {

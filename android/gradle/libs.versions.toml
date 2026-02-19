@@ -28,6 +28,7 @@ espresso = "3.5.1"
 mockk = "1.13.11"
 turbine = "1.1.0"
 truth = "1.4.2"
+uiautomator = "2.3.0"
 
 [libraries]
 # Core Android
@@ -102,6 +103,7 @@ hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testi
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
+uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

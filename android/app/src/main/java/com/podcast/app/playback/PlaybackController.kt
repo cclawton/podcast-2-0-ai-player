@@ -1,6 +1,8 @@
 package com.podcast.app.playback
 
 import android.content.Context
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -89,6 +91,12 @@ class PlaybackController @Inject constructor(
         }
     }
 
+    // Audio attributes for podcast content
+    private val podcastAudioAttributes = AudioAttributes.Builder()
+        .setUsage(C.USAGE_MEDIA)
+        .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+        .build()
+
     // Lazy initialization with nullable backing field for proper release
     private var _exoPlayer: ExoPlayer? = null
     private val exoPlayer: ExoPlayer
@@ -98,11 +106,30 @@ class PlaybackController @Inject constructor(
                     .setHandleAudioBecomingNoisy(true)
                     .build()
                     .apply {
+                        // Configure audio attributes for speech content
+                        setAudioAttributes(podcastAudioAttributes, /* handleAudioFocus= */ true)
                         addListener(playerListener)
                     }
             }
             return _exoPlayer!!
         }
+
+    /**
+     * Configure wake mode based on content source.
+     *
+     * WAKE_MODE_LOCAL: Keeps CPU awake for downloaded content (no network needed)
+     * WAKE_MODE_NETWORK: Keeps CPU and WiFi/cell radio awake for streaming
+     *
+     * @param isLocalContent true if playing from downloaded file, false for streaming
+     */
+    private fun configureWakeMode(isLocalContent: Boolean) {
+        val wakeMode = if (isLocalContent) {
+            C.WAKE_MODE_LOCAL
+        } else {
+            C.WAKE_MODE_NETWORK
+        }
+        exoPlayer.setWakeMode(wakeMode)
+    }
 
     /**
      * Play a specific episode.
@@ -116,7 +143,11 @@ class PlaybackController @Inject constructor(
         _currentEpisode.value = episode
 
         // Check for completed download to enable offline playback
-        val audioUri = getPlayableUri(episodeId, episode.audioUrl)
+        val (audioUri, isLocalContent) = getPlayableUriWithSource(episodeId, episode.audioUrl)
+
+        // Configure wake mode based on content source
+        // WAKE_MODE_LOCAL for downloaded content, WAKE_MODE_NETWORK for streaming
+        configureWakeMode(isLocalContent)
 
         val mediaItem = MediaItem.Builder()
             .setMediaId(episode.id.toString())
@@ -150,16 +181,25 @@ class PlaybackController @Inject constructor(
     }
 
     /**
-     * Gets the playable URI for an episode.
+     * Result containing playable URI and source information.
+     *
+     * @property uri The URI to play (file:// for local, https:// for streaming)
+     * @property isLocal true if playing from downloaded file, false for streaming
+     */
+    private data class PlayableSource(val uri: String, val isLocal: Boolean)
+
+    /**
+     * Gets the playable URI and source type for an episode.
      *
      * Returns the local file path if a completed download exists and the file is accessible,
-     * otherwise returns the network audio URL.
+     * otherwise returns the network audio URL. Also indicates whether the content is local
+     * for proper wake mode configuration.
      *
      * @param episodeId The episode ID to check for downloads
      * @param fallbackUrl The network URL to use if no download is available
-     * @return A file:// URI for local playback or the network URL
+     * @return PlayableSource with URI and local/streaming indicator
      */
-    private suspend fun getPlayableUri(episodeId: Long, fallbackUrl: String): String {
+    private suspend fun getPlayableUriWithSource(episodeId: Long, fallbackUrl: String): PlayableSource {
         return withContext(Dispatchers.IO) {
             try {
                 val download = downloadDao.getDownload(episodeId)
@@ -170,18 +210,18 @@ class PlaybackController @Inject constructor(
                     val file = File(download.filePath)
                     if (file.exists() && file.canRead()) {
                         // Use local file for offline playback
-                        "file://${file.absolutePath}"
+                        PlayableSource("file://${file.absolutePath}", isLocal = true)
                     } else {
                         // File missing or unreadable, fall back to network
-                        fallbackUrl
+                        PlayableSource(fallbackUrl, isLocal = false)
                     }
                 } else {
                     // No completed download, use network URL
-                    fallbackUrl
+                    PlayableSource(fallbackUrl, isLocal = false)
                 }
             } catch (e: Exception) {
                 // On any error, fall back to network URL
-                fallbackUrl
+                PlayableSource(fallbackUrl, isLocal = false)
             }
         }
     }

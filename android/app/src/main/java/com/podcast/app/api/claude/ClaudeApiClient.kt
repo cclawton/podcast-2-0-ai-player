@@ -87,7 +87,7 @@ class ClaudeApiClient @Inject constructor(
      * GH#31: Enhanced API test that runs actual NL queries after connection verification.
      *
      * @param apiKey The API key to test
-     * @return Result with connection status and query/response pairs
+     * @return Result with connection status and question/answer pairs
      */
     suspend fun testWithQueries(apiKey: String): Result<LLMTestResult> = withContext(Dispatchers.IO) {
         // First, verify basic connection
@@ -96,34 +96,39 @@ class ClaudeApiClient @Inject constructor(
             return@withContext Result.success(
                 LLMTestResult(
                     connectionSuccess = false,
-                    connectionMessage = connectionResult?.message ?: "Connection failed",
-                    queryResponses = emptyList()
+                    queries = emptyList(),
+                    errorMessage = connectionResult?.message ?: "Connection failed"
                 )
             )
         }
 
         // Run simple natural language test queries
         val testQueries = listOf(
-            "What color is the sun? Answer in one sentence.",
-            "Why is the sky blue? Answer in one sentence."
+            "What is 2+2?",           // Math test
+            "Say hello in 3 words"    // Language test
         )
 
-        val responses = mutableListOf<QueryResponse>()
+        val queryResults = mutableListOf<QueryResult>()
+        var errorMessage: String? = null
 
-        for (query in testQueries) {
+        for (question in testQueries) {
             try {
-                val response = sendQuery(apiKey, query)
-                responses.add(QueryResponse(query = query, response = response))
+                val answer = sendQuery(apiKey, question)
+                queryResults.add(QueryResult(question = question, answer = answer))
             } catch (e: Exception) {
-                responses.add(QueryResponse(query = query, response = "Error: ${e.message}"))
+                // Include error in result but continue with remaining queries
+                queryResults.add(QueryResult(question = question, answer = "Error: ${e.message}"))
+                if (errorMessage == null) {
+                    errorMessage = "Query failed: ${e.message}"
+                }
             }
         }
 
         Result.success(
             LLMTestResult(
                 connectionSuccess = true,
-                connectionMessage = "Connection successful",
-                queryResponses = responses
+                queries = queryResults,
+                errorMessage = errorMessage
             )
         )
     }
@@ -181,18 +186,22 @@ data class ConnectionTestResult(
 )
 
 /**
- * A single query/response pair from the LLM test.
+ * A single query/answer pair from the LLM test.
  */
-data class QueryResponse(
-    val query: String,
-    val response: String
+data class QueryResult(
+    val question: String,
+    val answer: String
 )
 
 /**
  * Result of the enhanced LLM test with natural language queries.
+ *
+ * @property connectionSuccess Whether the initial connection test passed
+ * @property queries List of query/answer pairs from test queries
+ * @property errorMessage Optional error message if any part of the test failed
  */
 data class LLMTestResult(
     val connectionSuccess: Boolean,
-    val connectionMessage: String,
-    val queryResponses: List<QueryResponse>
+    val queries: List<QueryResult>,
+    val errorMessage: String? = null
 )

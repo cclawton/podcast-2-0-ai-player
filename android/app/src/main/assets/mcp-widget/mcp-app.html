@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Podcast Explorer</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #1a1a2e;
+      --panel: #16213e;
+      --accent: #0f3460;
+      --highlight: #e94560;
+      --text: #eee;
+      --muted: #999;
+      --border: #2a2a4a;
+      --radius: 6px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.4;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      flex-shrink: 0;
+    }
+
+    .header p {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+    }
+
+    .tab-bar {
+      display: flex;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .tab-bar button {
+      flex: 1;
+      padding: 12px 16px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      font-size: 14px;
+      font-family: var(--font);
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .tab-bar button:active {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-bar button.active {
+      color: var(--highlight);
+      border-bottom-color: var(--highlight);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    .toolbar input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .toolbar input[type="text"]:focus {
+      border-color: var(--highlight);
+    }
+
+    .toolbar input[type="text"]::placeholder {
+      color: var(--muted);
+    }
+
+    .result-count {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .table-wrapper {
+      flex: 1;
+      overflow: auto;
+      padding: 0 16px 8px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .table-container {
+      display: none;
+    }
+
+    .table-container.active {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    th {
+      background: var(--accent);
+      color: var(--text);
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th .sort-arrow {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    th .sort-arrow.asc::after {
+      content: "\25B2";
+      color: var(--highlight);
+    }
+
+    th .sort-arrow.desc::after {
+      content: "\25BC";
+      color: var(--highlight);
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      vertical-align: middle;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    tr:active td {
+      background: rgba(15, 52, 96, 0.5);
+    }
+
+    td.clickable {
+      color: var(--highlight);
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    td img.thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 6px;
+      object-fit: cover;
+      display: block;
+      background: var(--accent);
+    }
+
+    td.muted {
+      color: var(--muted);
+    }
+
+    td.number {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .action-btn:active {
+      background: var(--highlight);
+    }
+
+    .action-btn.play {
+      background: var(--highlight);
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 12px 16px;
+      flex-shrink: 0;
+    }
+
+    .pagination button {
+      padding: 10px 18px;
+      background: var(--accent);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .pagination button:active:not(:disabled) {
+      background: #1a4a7a;
+    }
+
+    .pagination button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .pagination .page-info {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 26, 46, 0.8);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loading-overlay.visible {
+      display: flex;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--highlight);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #3d1525;
+      border-bottom: 1px solid #5a2035;
+      color: #f8a0b0;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .error-banner.visible {
+      display: flex;
+    }
+
+    .error-banner .error-text {
+      flex: 1;
+    }
+
+    .error-banner .dismiss-btn {
+      background: none;
+      border: none;
+      color: #f8a0b0;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      line-height: 1;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 16px;
+      color: var(--muted);
+      font-size: 15px;
+      text-align: center;
+    }
+
+    .empty-state .search-btn {
+      margin-top: 16px;
+      padding: 12px 24px;
+      background: var(--highlight);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+
+    <!-- Header -->
+    <div class="header">
+      <p>MCP Podcast Explorer</p>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="error-banner" class="error-banner">
+      <span class="error-text" id="error-text"></span>
+      <button class="dismiss-btn" id="error-dismiss">&times;</button>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="active" data-tab="search">Podcasts</button>
+      <button data-tab="episodes">Episodes</button>
+    </div>
+
+    <!-- Podcasts Tab -->
+    <div id="tab-search" class="table-container active">
+      <div class="toolbar">
+        <input id="filter-search" type="text" placeholder="Filter results..." />
+        <span id="count-search" class="result-count"></span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead id="thead-search"></thead>
+          <tbody id="tbody-search"></tbody>
+        </table>
+      </div>
+      <div id="empty-search" class="empty-state">
+        <span>Search for podcasts to get started</span>
+        <button class="search-btn" id="trigger-search">Search Podcasts</button>
+      </div>
+      <div class="pagination" id="pag-search">
+        <button id="prev-search">Prev</button>
+        <span class="page-info" id="pageinfo-search"></span>
+        <button id="next-search">Next</button>
+      </div>
+    </div>
+
+    <!-- Episodes Tab -->
+    <div id="tab-episodes" class="table-container">
+      <div class="toolbar">
+        <input id="filter-episodes" type="text" placeholder="Filter results..." />
+        <span id="count-episodes" class="result-count"></span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead id="thead-episodes"></thead>
+          <tbody id="tbody-episodes"></tbody>
+        </table>
+      </div>
+      <div id="empty-episodes" class="empty-state">
+        <span>Tap a podcast to view episodes</span>
+      </div>
+      <div class="pagination" id="pag-episodes">
+        <button id="prev-episodes">Prev</button>
+        <span class="page-info" id="pageinfo-episodes"></span>
+        <button id="next-episodes">Next</button>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="spinner"></div>
+    </div>
+
+  </div>
+
+  <script>
+    /**
+     * MCP Widget for Android WebView
+     *
+     * Communication with Android:
+     *   Android -> JS: window.pushToolResult(json) - push MCP tool results
+     *   JS -> Android: AndroidBridge.onToolCallRequest(toolName, argsJson) - request tool execution
+     *   JS -> Android: AndroidBridge.onEpisodePlay(episodeId, title) - play episode
+     *   JS -> Android: AndroidBridge.onPodcastSubscribe(podcastId, title) - subscribe to podcast
+     */
+
+    const PAGE_SIZE = 25;
+    const DEBOUNCE_MS = 300;
+
+    // State
+    const tabState = {
+      search: { data: [], filtered: [], page: 0, sortCol: '', sortDir: 'asc', filterText: '', kind: 'podcast' },
+      episodes: { data: [], filtered: [], page: 0, sortCol: '', sortDir: 'asc', filterText: '', kind: 'episode' }
+    };
+    let activeTab = 'search';
+
+    // DOM helpers
+    function $(id) { return document.getElementById(id); }
+    function showLoading() { $('loading-overlay').classList.add('visible'); }
+    function hideLoading() { $('loading-overlay').classList.remove('visible'); }
+    function showError(msg) {
+      $('error-text').textContent = msg;
+      $('error-banner').classList.add('visible');
+    }
+    function hideError() { $('error-banner').classList.remove('visible'); }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      const s = String(str);
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+    }
+
+    function formatDate(value) {
+      if (!value || value === 0) return '';
+      let ts = typeof value === 'string' ? parseInt(value, 10) : value;
+      if (isNaN(ts) || ts <= 0) return '';
+      const d = new Date(ts * 1000);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatDuration(seconds) {
+      if (!seconds || seconds <= 0) return '';
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      if (h > 0) return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+      return m + ':' + String(s).padStart(2, '0');
+    }
+
+    // Column definitions
+    const podcastCols = [
+      { key: 'artwork', label: '', sortable: false, render: row => {
+        const src = escapeHtml(row.artwork || row.image || row.imageUrl || '');
+        return src ? '<img class="thumb" src="' + src + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' : '';
+      }},
+      { key: 'title', label: 'Title', cls: 'clickable' },
+      { key: 'author', label: 'Author' },
+      { key: 'episodeCount', label: 'Eps', cls: 'number' },
+      { key: 'subscribe', label: '', sortable: false, render: row => {
+        const id = row.id || row.podcastIndexId;
+        const title = escapeHtml(row.title || '');
+        return '<button class="action-btn" onclick="subscribePodcast(' + id + ', \'' + title.replace(/'/g, "\\'") + '\')">+</button>';
+      }}
+    ];
+
+    const episodeCols = [
+      { key: 'image', label: '', sortable: false, render: row => {
+        const src = escapeHtml(row.image || row.feedImage || row.imageUrl || '');
+        return src ? '<img class="thumb" src="' + src + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' : '';
+      }},
+      { key: 'title', label: 'Title' },
+      { key: 'feedTitle', label: 'Podcast' },
+      { key: 'datePublished', label: 'Date', render: row => escapeHtml(formatDate(row.datePublished || row.publishedAt)) },
+      { key: 'duration', label: 'Dur', render: row => escapeHtml(formatDuration(row.duration || row.audioDuration)) },
+      { key: 'play', label: '', sortable: false, render: row => {
+        const id = row.id || row.episodeId;
+        const title = escapeHtml(row.title || '').replace(/'/g, "\\'");
+        return '<button class="action-btn play" onclick="playEpisode(' + id + ', \'' + title + '\')">Play</button>';
+      }}
+    ];
+
+    function colsForKind(kind) {
+      return kind === 'episode' ? episodeCols : podcastCols;
+    }
+
+    // Rendering
+    function renderThead(tabId) {
+      const state = tabState[tabId];
+      const cols = colsForKind(state.kind);
+      const thead = $('thead-' + tabId);
+
+      let html = '<tr>';
+      for (const col of cols) {
+        const isSortable = col.sortable !== false;
+        let arrowCls = '';
+        if (isSortable && state.sortCol === col.key) {
+          arrowCls = state.sortDir;
+        }
+        html += '<th data-col="' + escapeHtml(col.key) + '"' + (isSortable ? '' : ' style="cursor:default"') + '>';
+        html += escapeHtml(col.label);
+        if (isSortable && col.label) {
+          html += ' <span class="sort-arrow ' + arrowCls + '"></span>';
+        }
+        html += '</th>';
+      }
+      html += '</tr>';
+      thead.innerHTML = html;
+    }
+
+    function renderTbody(tabId) {
+      const state = tabState[tabId];
+      const cols = colsForKind(state.kind);
+      const tbody = $('tbody-' + tabId);
+      const empty = $('empty-' + tabId);
+
+      const start = state.page * PAGE_SIZE;
+      const pageData = state.filtered.slice(start, start + PAGE_SIZE);
+
+      if (state.filtered.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'flex';
+      } else {
+        empty.style.display = 'none';
+        let html = '';
+        for (const row of pageData) {
+          html += '<tr>';
+          for (const col of cols) {
+            const classes = col.cls ? [col.cls] : [];
+            if (col.render) {
+              html += '<td' + (classes.length ? ' class="' + classes.join(' ') + '"' : '') + '>' + col.render(row) + '</td>';
+            } else {
+              const val = escapeHtml(row[col.key] || '');
+              if (col.cls === 'clickable' && state.kind === 'podcast') {
+                const feedId = row.id || row.podcastIndexId;
+                html += '<td class="clickable" data-feed-id="' + feedId + '">' + val + '</td>';
+              } else {
+                html += '<td' + (classes.length ? ' class="' + classes.join(' ') + '"' : '') + '>' + val + '</td>';
+              }
+            }
+          }
+          html += '</tr>';
+        }
+        tbody.innerHTML = html;
+      }
+
+      const total = state.filtered.length;
+      const countEl = $('count-' + tabId);
+      if (total === 0) {
+        countEl.textContent = '';
+      } else {
+        const from = start + 1;
+        const to = Math.min(start + PAGE_SIZE, total);
+        countEl.textContent = 'Showing ' + from + '-' + to + ' of ' + total;
+      }
+
+      updatePagination(tabId);
+    }
+
+    function updatePagination(tabId) {
+      const state = tabState[tabId];
+      const totalPages = Math.max(1, Math.ceil(state.filtered.length / PAGE_SIZE));
+      const currentPage = state.page + 1;
+
+      const prevBtn = $('prev-' + tabId);
+      const nextBtn = $('next-' + tabId);
+      const info = $('pageinfo-' + tabId);
+
+      prevBtn.disabled = state.page <= 0;
+      nextBtn.disabled = currentPage >= totalPages;
+      info.textContent = state.filtered.length > 0 ? 'Page ' + currentPage + ' of ' + totalPages : '';
+    }
+
+    function applyFilter(tabId) {
+      const state = tabState[tabId];
+      const term = state.filterText.toLowerCase();
+
+      if (!term) {
+        state.filtered = [...state.data];
+      } else {
+        state.filtered = state.data.filter(row => {
+          return Object.values(row).some(v => {
+            if (v === null || v === undefined) return false;
+            return String(v).toLowerCase().includes(term);
+          });
+        });
+      }
+
+      state.page = 0;
+      renderTbody(tabId);
+    }
+
+    function applySort(tabId, col) {
+      const state = tabState[tabId];
+
+      if (state.sortCol === col) {
+        state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sortCol = col;
+        state.sortDir = 'asc';
+      }
+
+      const dir = state.sortDir === 'asc' ? 1 : -1;
+      state.filtered.sort((a, b) => {
+        const va = a[col];
+        const vb = b[col];
+        if (va === vb) return 0;
+        if (va === null || va === undefined) return 1;
+        if (vb === null || vb === undefined) return -1;
+        if (typeof va === 'number' && typeof vb === 'number') {
+          return (va - vb) * dir;
+        }
+        return String(va).localeCompare(String(vb)) * dir;
+      });
+
+      state.page = 0;
+      renderThead(tabId);
+      renderTbody(tabId);
+    }
+
+    function switchTab(tabId) {
+      activeTab = tabId;
+
+      document.querySelectorAll('.tab-bar button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+      });
+
+      document.querySelectorAll('.table-container').forEach(el => {
+        el.classList.toggle('active', el.id === 'tab-' + tabId);
+      });
+    }
+
+    function loadData(tabId, rows, kind) {
+      const state = tabState[tabId];
+      state.data = rows;
+      state.kind = kind;
+      state.page = 0;
+      state.sortCol = '';
+      state.sortDir = 'asc';
+      applyFilter(tabId);
+      renderThead(tabId);
+      renderTbody(tabId);
+    }
+
+    // Parse tool results
+    function parseToolResult(result) {
+      if (!result || !result.content) return null;
+      const textContent = result.content.find(c => c.type === 'text');
+      if (!textContent || !textContent.text) return null;
+      try {
+        return JSON.parse(textContent.text);
+      } catch {
+        return null;
+      }
+    }
+
+    function extractPodcastRows(data) {
+      if (data.table && data.table.rows) return data.table.rows;
+      if (data.feeds) return data.feeds;
+      if (data.podcasts) return data.podcasts;
+      if (data.data && Array.isArray(data.data)) return data.data;
+      return [];
+    }
+
+    function extractEpisodeRows(data) {
+      if (data.table && data.table.rows) return data.table.rows;
+      if (data.items) return data.items;
+      if (data.episodes) return data.episodes;
+      if (data.data && Array.isArray(data.data)) return data.data;
+      return [];
+    }
+
+    // Handle results from Android
+    function handleToolResult(result) {
+      hideLoading();
+      const data = parseToolResult(result);
+      if (!data) {
+        // Try direct data format
+        if (result && typeof result === 'object' && !result.content) {
+          handleDirectData(result);
+        }
+        return;
+      }
+      handleDirectData(data);
+    }
+
+    function handleDirectData(data) {
+      if (data.error) {
+        showError(data.message || data.error || 'An error occurred');
+        return;
+      }
+
+      const action = data.action || '';
+
+      if (action === 'search_podcasts' || action === 'searchPodcasts' || action === 'browse_trending' || data.feeds || data.podcasts) {
+        const rows = extractPodcastRows(data);
+        loadData('search', rows, 'podcast');
+        switchTab('search');
+      } else if (action === 'search_episodes' || action === 'getEpisodes' || action === 'episodes_byfeedid' || data.items || data.episodes) {
+        const rows = extractEpisodeRows(data);
+        loadData('episodes', rows, 'episode');
+        switchTab('episodes');
+      } else if (data.table) {
+        const rows = data.table.rows || [];
+        const hasEpisodeType = data.table.columns && data.table.columns.some(c => c.key === 'episodeType' || c.key === 'duration');
+        if (hasEpisodeType) {
+          loadData('episodes', rows, 'episode');
+          switchTab('episodes');
+        } else {
+          loadData('search', rows, 'podcast');
+          switchTab('search');
+        }
+      }
+    }
+
+    // Mobile bridge globals
+    window.pushToolResult = function(json) {
+      try {
+        const result = JSON.parse(json);
+        handleToolResult(result);
+      } catch (err) {
+        console.error('pushToolResult: invalid JSON', err);
+        hideLoading();
+        showError('Failed to parse result');
+      }
+    };
+
+    window._mcpWidgetReady = true;
+
+    // Android bridge calls
+    function callTool(name, args) {
+      showLoading();
+      hideError();
+      if (typeof AndroidBridge !== 'undefined' && AndroidBridge.onToolCallRequest) {
+        AndroidBridge.onToolCallRequest(name, JSON.stringify(args));
+      } else {
+        console.warn('AndroidBridge not available');
+        hideLoading();
+      }
+    }
+
+    function playEpisode(episodeId, title) {
+      if (typeof AndroidBridge !== 'undefined' && AndroidBridge.onEpisodePlay) {
+        AndroidBridge.onEpisodePlay(String(episodeId), title);
+      } else {
+        console.log('Play episode:', episodeId, title);
+      }
+    }
+
+    function subscribePodcast(podcastId, title) {
+      if (typeof AndroidBridge !== 'undefined' && AndroidBridge.onPodcastSubscribe) {
+        AndroidBridge.onPodcastSubscribe(String(podcastId), title);
+      } else {
+        console.log('Subscribe podcast:', podcastId, title);
+      }
+    }
+
+    function triggerSearch() {
+      if (typeof AndroidBridge !== 'undefined' && AndroidBridge.onSearchRequest) {
+        AndroidBridge.onSearchRequest();
+      }
+    }
+
+    // Debounce helper
+    function debounce(fn, ms) {
+      let timer;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), ms);
+      };
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      // Error dismiss
+      $('error-dismiss').addEventListener('click', hideError);
+
+      // Tab switching
+      document.querySelectorAll('.tab-bar button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tab = btn.dataset.tab;
+          if (tab) switchTab(tab);
+        });
+      });
+
+      // Podcast title click -> load episodes
+      document.addEventListener('click', function(e) {
+        const target = e.target;
+        if (target.classList.contains('clickable') && target.dataset.feedId) {
+          const feedId = parseInt(target.dataset.feedId, 10);
+          if (!isNaN(feedId) && feedId > 0) {
+            callTool('episodes_byfeedid', { id: feedId, max: 50 });
+          }
+        }
+      });
+
+      // Filter inputs
+      ['search', 'episodes'].forEach(tabId => {
+        const filterEl = $('filter-' + tabId);
+        filterEl.addEventListener('input', debounce(function() {
+          tabState[tabId].filterText = filterEl.value.trim();
+          applyFilter(tabId);
+        }, DEBOUNCE_MS));
+      });
+
+      // Column sorting
+      ['search', 'episodes'].forEach(tabId => {
+        const thead = $('thead-' + tabId);
+        thead.addEventListener('click', function(e) {
+          const th = e.target.closest('th');
+          if (!th) return;
+          const col = th.dataset.col;
+          if (!col) return;
+          const cols = colsForKind(tabState[tabId].kind);
+          const def = cols.find(c => c.key === col);
+          if (def && def.sortable === false) return;
+          applySort(tabId, col);
+        });
+      });
+
+      // Pagination
+      ['search', 'episodes'].forEach(tabId => {
+        $('prev-' + tabId).addEventListener('click', function() {
+          const state = tabState[tabId];
+          if (state.page > 0) {
+            state.page--;
+            renderTbody(tabId);
+          }
+        });
+        $('next-' + tabId).addEventListener('click', function() {
+          const state = tabState[tabId];
+          const totalPages = Math.ceil(state.filtered.length / PAGE_SIZE);
+          if (state.page + 1 < totalPages) {
+            state.page++;
+            renderTbody(tabId);
+          }
+        });
+      });
+
+      // Search trigger button
+      $('trigger-search').addEventListener('click', triggerSearch);
+
+      // Initial render
+      renderThead('search');
+      renderThead('episodes');
+      renderTbody('search');
+      renderTbody('episodes');
+
+      // Notify Android that widget is ready
+      if (typeof AndroidBridge !== 'undefined' && AndroidBridge.onWidgetReady) {
+        AndroidBridge.onWidgetReady();
+      }
+    });
+  </script>
+</body>
+</html>

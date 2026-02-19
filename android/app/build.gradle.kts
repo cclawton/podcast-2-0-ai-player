@@ -153,6 +153,7 @@ dependencies {
     androidTestImplementation(libs.mockk.android)
     androidTestImplementation(libs.hilt.android.testing)
     androidTestImplementation(libs.work.testing)
+    androidTestImplementation(libs.uiautomator)
     kspAndroidTest(libs.hilt.compiler)
     debugImplementation(libs.compose.ui.test.manifest)
 }

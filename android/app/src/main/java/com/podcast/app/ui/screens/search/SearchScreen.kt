@@ -423,11 +423,9 @@ fun SearchScreen(
                                         AIEpisodeCard(
                                             episode = episode,
                                             onPlayClick = {
-                                                // GH#38: Navigate to player with episode
-                                                val localId = viewModel.getLocalEpisodeId(episode.id)
-                                                if (localId != null) {
-                                                    navController.navigate(Screen.Player.createRoute(localId))
-                                                }
+                                                // GH#38: Play episode via shared playback state
+                                                viewModel.playAiSearchEpisode(episode)
+                                                navController.navigate(Screen.Player.route)
                                             },
                                             onDownloadClick = { viewModel.onAiEpisodeDownloadClick(episode) },
                                             downloadState = downloadState
@@ -454,10 +452,9 @@ fun SearchScreen(
                                         AIEpisodeCard(
                                             episode = episode,
                                             onPlayClick = {
-                                                val localId = viewModel.getLocalEpisodeId(episode.id)
-                                                if (localId != null) {
-                                                    navController.navigate(Screen.Player.createRoute(localId))
-                                                }
+                                                // GH#38: Play episode via shared playback state
+                                                viewModel.playAiSearchEpisode(episode)
+                                                navController.navigate(Screen.Player.route)
                                             },
                                             onDownloadClick = { viewModel.onAiEpisodeDownloadClick(episode) },
                                             downloadState = downloadState
@@ -513,10 +510,9 @@ fun SearchScreen(
                                         AIEpisodeCard(
                                             episode = episode,
                                             onPlayClick = {
-                                                val localId = viewModel.getLocalEpisodeId(episode.id)
-                                                if (localId != null) {
-                                                    navController.navigate(Screen.Player.createRoute(localId))
-                                                }
+                                                // GH#38: Play episode via shared playback state
+                                                viewModel.playAiSearchEpisode(episode)
+                                                navController.navigate(Screen.Player.route)
                                             },
                                             onDownloadClick = { viewModel.onAiEpisodeDownloadClick(episode) },
                                             downloadState = downloadState

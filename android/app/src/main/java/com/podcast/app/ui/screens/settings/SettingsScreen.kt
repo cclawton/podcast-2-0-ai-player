@@ -95,6 +95,13 @@ fun SettingsScreen(
     val isApiKeySaved by viewModel.isApiKeySaved.collectAsState()
     val isEditingApiKey by viewModel.isEditingApiKey.collectAsState()
 
+    // Podcast Index credentials state (podcast-253, podcast-ag4)
+    val podcastIndexApiKey by viewModel.podcastIndexApiKey.collectAsState()
+    val podcastIndexApiSecret by viewModel.podcastIndexApiSecret.collectAsState()
+    val isPodcastIndexSaved by viewModel.isPodcastIndexSaved.collectAsState()
+    val isEditingPodcastIndex by viewModel.isEditingPodcastIndex.collectAsState()
+    val podcastIndexValidationError by viewModel.podcastIndexValidationError.collectAsState()
+
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Show snackbar when sync message changes
@@ -196,6 +203,22 @@ fun SettingsScreen(
                     description = "Update feeds while app is closed",
                     checked = settings.allowBackgroundSync,
                     onCheckedChange = { viewModel.updateBackgroundSync(it) }
+                )
+
+                // Podcast Index API configuration (podcast-253, podcast-ag4)
+                Spacer(modifier = Modifier.height(12.dp))
+                PodcastIndexApiConfiguration(
+                    apiKey = podcastIndexApiKey,
+                    apiSecret = podcastIndexApiSecret,
+                    onApiKeyChange = { viewModel.updatePodcastIndexApiKey(it) },
+                    onApiSecretChange = { viewModel.updatePodcastIndexApiSecret(it) },
+                    onSave = { viewModel.savePodcastIndexCredentials() },
+                    onClear = { viewModel.clearPodcastIndexCredentials() },
+                    onStartEditing = { viewModel.startEditingPodcastIndex() },
+                    onCancelEditing = { viewModel.cancelEditingPodcastIndex() },
+                    isSaved = isPodcastIndexSaved,
+                    isEditing = isEditingPodcastIndex,
+                    validationError = podcastIndexValidationError
                 )
             }
 
@@ -1035,7 +1058,7 @@ private fun ClaudeApiConfiguration(
 
                     // Display LLM test results
                     llmTestResult?.let { result ->
-                        if (result.queryResponses.isNotEmpty()) {
+                        if (result.queries.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(12.dp))
 
                             Card(
@@ -1066,14 +1089,14 @@ private fun ClaudeApiConfiguration(
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
-                                    result.queryResponses.forEach { qr ->
+                                    result.queries.forEach { qr ->
                                         Text(
-                                            text = "Q: " + qr.query.replace(" Answer in one sentence.", ""),
+                                            text = "Q: ${qr.question}",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
-                                            text = "A: " + qr.response,
+                                            text = "A: ${qr.answer}",
                                             style = MaterialTheme.typography.bodySmall,
                                             modifier = Modifier.padding(bottom = 8.dp)
                                         )
@@ -1083,6 +1106,220 @@ private fun ClaudeApiConfiguration(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Podcast Index API configuration card with save/change/reset functionality.
+ * (podcast-253, podcast-ag4)
+ */
+@Composable
+private fun PodcastIndexApiConfiguration(
+    apiKey: String,
+    apiSecret: String,
+    onApiKeyChange: (String) -> Unit,
+    onApiSecretChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onClear: () -> Unit,
+    onStartEditing: () -> Unit,
+    onCancelEditing: () -> Unit,
+    isSaved: Boolean,
+    isEditing: Boolean,
+    validationError: String?
+) {
+    var showApiKey by remember { mutableStateOf(false) }
+    var showApiSecret by remember { mutableStateOf(false) }
+
+    // Show input fields if: not saved OR currently editing
+    val showInputFields = !isSaved || isEditing
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .testTag("podcast_index_config"),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Podcast Index API",
+                style = MaterialTheme.typography.titleSmall
+            )
+
+            Text(
+                text = "Required for podcast search and discovery",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (showInputFields) {
+                // API Key input
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = onApiKeyChange,
+                    label = { Text("API Key") },
+                    placeholder = { Text("Your Podcast Index API key") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("podcast_index_api_key_input"),
+                    singleLine = true,
+                    visualTransformation = if (showApiKey) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { showApiKey = !showApiKey }) {
+                            Icon(
+                                imageVector = if (showApiKey) {
+                                    Icons.Filled.VisibilityOff
+                                } else {
+                                    Icons.Filled.Visibility
+                                },
+                                contentDescription = if (showApiKey) "Hide API key" else "Show API key"
+                            )
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // API Secret input
+                OutlinedTextField(
+                    value = apiSecret,
+                    onValueChange = onApiSecretChange,
+                    label = { Text("API Secret") },
+                    placeholder = { Text("Your Podcast Index API secret") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("podcast_index_api_secret_input"),
+                    singleLine = true,
+                    visualTransformation = if (showApiSecret) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { showApiSecret = !showApiSecret }) {
+                            Icon(
+                                imageVector = if (showApiSecret) {
+                                    Icons.Filled.VisibilityOff
+                                } else {
+                                    Icons.Filled.Visibility
+                                },
+                                contentDescription = if (showApiSecret) "Hide API secret" else "Show API secret"
+                            )
+                        }
+                    }
+                )
+
+                // Validation error
+                if (validationError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = validationError,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onSave,
+                        enabled = apiKey.isNotBlank() && apiSecret.isNotBlank(),
+                        modifier = Modifier.testTag("podcast_index_save_button")
+                    ) {
+                        Text("Save")
+                    }
+
+                    if (isEditing) {
+                        // Cancel button when editing existing credentials
+                        Button(
+                            onClick = onCancelEditing,
+                            modifier = Modifier.testTag("podcast_index_cancel_button")
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Get your API credentials at podcastindex.org/api",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                // Saved mode: credentials are stored securely
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("podcast_index_saved_indicator")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.padding(start = 8.dp))
+                    Text(
+                        text = "API credentials saved securely",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onStartEditing,
+                        modifier = Modifier.testTag("podcast_index_change_button")
+                    ) {
+                        Text("Change")
+                    }
+
+                    Button(
+                        onClick = onClear,
+                        modifier = Modifier.testTag("podcast_index_reset_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.padding(start = 4.dp))
+                        Text("Reset")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Credentials are encrypted using Android Keystore.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

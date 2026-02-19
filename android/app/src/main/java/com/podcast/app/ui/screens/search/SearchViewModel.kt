@@ -10,6 +10,7 @@ import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.data.local.entities.Podcast
 import com.podcast.app.data.repository.PodcastRepository
 import com.podcast.app.download.DownloadManager
+import com.podcast.app.playback.PlaybackController
 import com.podcast.app.privacy.NetworkFeature
 import com.podcast.app.privacy.PrivacyManager
 import com.podcast.app.util.DiagnosticLogger
@@ -30,7 +31,8 @@ class SearchViewModel @Inject constructor(
     private val privacyManager: PrivacyManager,
     private val aiSearchService: AISearchService,
     private val downloadManager: DownloadManager,
-    private val downloadDao: DownloadDao
+    private val downloadDao: DownloadDao,
+    private val playbackController: PlaybackController
 ) : ViewModel() {
 
     companion object {
@@ -507,5 +509,50 @@ class SearchViewModel @Inject constructor(
      */
     fun getLocalEpisodeId(episodeIndexId: Long): Long? {
         return _savedEpisodeIds.value[episodeIndexId]
+    }
+
+    /**
+     * GH#38: Play an episode from AI search results.
+     * Saves the episode to local DB if not already saved, then starts playback.
+     */
+    fun playAiSearchEpisode(episode: AISearchService.AISearchEpisode) {
+        viewModelScope.launch {
+            DiagnosticLogger.i(TAG, "playAiSearchEpisode: ${episode.title}")
+
+            // Check if episode is already saved locally
+            var localEpisodeId = _savedEpisodeIds.value[episode.id]
+
+            if (localEpisodeId == null) {
+                // Save the episode to local DB first
+                val result = repository.saveEpisodeForDownload(
+                    podcastIndexId = episode.podcastId,
+                    podcastTitle = episode.podcastTitle,
+                    podcastImageUrl = episode.podcastImageUrl,
+                    podcastFeedUrl = null,
+                    episodeIndexId = episode.id,
+                    episodeTitle = episode.title,
+                    episodeDescription = episode.description,
+                    episodeAudioUrl = episode.audioUrl,
+                    episodeDuration = episode.audioDuration,
+                    episodePublishedAt = episode.publishedAt,
+                    episodeImageUrl = episode.imageUrl
+                )
+
+                result.onSuccess { savedEpisode ->
+                    localEpisodeId = savedEpisode.id
+                    _savedEpisodeIds.value = _savedEpisodeIds.value + (episode.id to savedEpisode.id)
+                }.onFailure { error ->
+                    DiagnosticLogger.e(TAG, "Failed to save episode for playback: ${error.message}")
+                    _aiError.value = "Failed to play episode: ${error.message}"
+                    return@launch
+                }
+            }
+
+            // Start playback
+            localEpisodeId?.let { episodeId ->
+                playbackController.playEpisode(episodeId, 0)
+                DiagnosticLogger.i(TAG, "Started playback for episode: $episodeId")
+            }
+        }
     }
 }
