@@ -34,8 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.podcast.app.util.TestTags
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.podcast.app.mcp.widget.McpWidgetViewModel
@@ -137,6 +139,7 @@ fun McpWidgetScreen(
     }
 
     Scaffold(
+        modifier = Modifier.testTag(TestTags.MCP_WIDGET_SCREEN),
         topBar = {
             TopAppBar(
                 title = { Text("MCP Explorer") },
@@ -176,11 +179,15 @@ fun McpWidgetScreen(
         ) {
             // Loading indicator
             if (isLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.MCP_WIDGET_LOADING)
+                )
             }
 
             // WebView
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().testTag(TestTags.MCP_WIDGET_WEBVIEW)) {
                 AndroidView(
                     factory = { ctx ->
                         McpWidgetWebView(ctx).apply {

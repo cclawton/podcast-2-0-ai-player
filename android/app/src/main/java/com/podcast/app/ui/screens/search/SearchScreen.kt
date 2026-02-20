@@ -190,18 +190,21 @@ fun SearchScreen(
                             contentDescription = "MCP Explorer"
                         )
                     }
-                    // AI Search button (GH#30)
-                    if (isAiAvailable) {
-                        IconButton(
-                            onClick = { viewModel.toggleAiSearch() },
-                            modifier = Modifier.testTag(TestTags.AI_SEARCH_BUTTON)
-                        ) {
-                            Icon(
-                                Icons.Default.AutoAwesome,
-                                contentDescription = "AI Search",
-                                tint = if (showAiSearch) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                    // AI Search button (GH#30) - always visible and clickable
+                    // AI search UI appears on toggle; actual search checks API availability
+                    IconButton(
+                        onClick = { viewModel.toggleAiSearch() },
+                        modifier = Modifier.testTag(TestTags.AI_SEARCH_BUTTON)
+                    ) {
+                        Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = "AI Search",
+                            tint = when {
+                                !isAiAvailable -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                showAiSearch -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurface
+                            }
+                        )
                     }
                     IconButton(
                         onClick = { viewModel.showRssDialog() },

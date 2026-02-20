@@ -17,7 +17,7 @@ import javax.inject.Singleton
 /**
  * DataStore extension for privacy settings.
  */
-private val Context.privacyDataStore: DataStore<Preferences> by preferencesDataStore(
+internal val Context.privacyDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "privacy_settings"
 )
 

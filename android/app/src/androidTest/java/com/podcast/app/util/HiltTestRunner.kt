@@ -2,11 +2,15 @@ package com.podcast.app.util
 
 import android.app.Application
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
 import androidx.test.runner.AndroidJUnitRunner
 import androidx.work.Configuration
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
+import com.podcast.app.privacy.privacyDataStore
 import dagger.hilt.android.testing.HiltTestApplication
+import kotlinx.coroutines.runBlocking
 
 /**
  * Custom test runner for Hilt instrumented tests.
@@ -15,6 +19,7 @@ import dagger.hilt.android.testing.HiltTestApplication
  * - Uses HiltTestApplication for dependency injection in tests
  * - Initializes WorkManager with a test configuration to avoid crashes
  *   when components depend on WorkManager (e.g., DownloadManager)
+ * - Completes onboarding so tests start on the Library screen
  *
  * Add to build.gradle.kts:
  * defaultConfig {
@@ -22,6 +27,7 @@ import dagger.hilt.android.testing.HiltTestApplication
  * }
  */
 class HiltTestRunner : AndroidJUnitRunner() {
+
     override fun newApplication(
         cl: ClassLoader?,
         className: String?,
@@ -44,6 +50,16 @@ class HiltTestRunner : AndroidJUnitRunner() {
             .build()
 
         WorkManagerTestInitHelper.initializeTestWorkManager(context, config)
+
+        // Complete onboarding so all UI tests start on the Library screen
+        // instead of being stuck on the Onboarding screen.
+        // Uses the SAME DataStore delegate from PrivacyRepository (internal visibility)
+        // to avoid "multiple DataStores active for the same file" errors.
+        runBlocking {
+            context.privacyDataStore.edit { prefs ->
+                prefs[booleanPreferencesKey("onboarding_completed")] = true
+            }
+        }
 
         super.onStart()
     }

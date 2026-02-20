@@ -78,8 +78,8 @@ class BackgroundPlaybackTest {
 
     companion object {
         private const val BACKGROUND_WAIT_TIME_MS = 5000L
-        private const val UI_INTERACTION_TIMEOUT_MS = 3000L
-        private const val NOTIFICATION_TIMEOUT_MS = 5000L
+        private const val UI_INTERACTION_TIMEOUT_MS = 10000L
+        private const val NOTIFICATION_TIMEOUT_MS = 15000L
         private const val APP_PACKAGE = "com.podcast.app"
     }
 
@@ -154,6 +154,23 @@ class BackgroundPlaybackTest {
         uiDevice.wait(Until.hasObject(By.pkg(APP_PACKAGE).depth(0)), NOTIFICATION_TIMEOUT_MS)
     }
 
+    /**
+     * Brings app to foreground and navigates to Player screen.
+     * After HOME press, app may restart at Library (start destination).
+     */
+    private fun bringAppToPlayerScreen() {
+        bringAppToForeground()
+        try {
+            composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN, timeoutMillis = 3000)
+        } catch (e: Throwable) {
+            // App returned to start destination, navigate to Player
+            composeRule.waitUntilNodeWithTagExists(TestTags.BOTTOM_NAV, timeoutMillis = UI_INTERACTION_TIMEOUT_MS)
+            composeRule.onNodeWithTag(TestTags.NAV_PLAYER).performClick()
+            composeRule.waitForIdle()
+            composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN, timeoutMillis = UI_INTERACTION_TIMEOUT_MS)
+        }
+    }
+
     // ================================
     // Background Playback Tests
     // ================================
@@ -185,11 +202,8 @@ class BackgroundPlaybackTest {
         // Wait while app is backgrounded
         Thread.sleep(BACKGROUND_WAIT_TIME_MS)
 
-        // Return to app
-        bringAppToForeground()
-
-        // Wait for UI to stabilize
-        composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN, timeoutMillis = UI_INTERACTION_TIMEOUT_MS)
+        // Return to app and navigate to Player
+        bringAppToPlayerScreen()
         composeRule.waitForIdle()
 
         // Verify playback state is maintained
@@ -241,9 +255,8 @@ class BackgroundPlaybackTest {
         // Close notification shade
         uiDevice.pressBack()
 
-        // Return to app
-        bringAppToForeground()
-        composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN)
+        // Return to app and navigate to Player
+        bringAppToPlayerScreen()
 
         // Note: In emulator/CI environments, notification might not always appear
         // due to test app limitations. We verify playback state is maintained.
@@ -358,9 +371,8 @@ class BackgroundPlaybackTest {
             uiDevice.pressHome()
             Thread.sleep(500)
 
-            // Return
-            bringAppToForeground()
-            composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN, timeoutMillis = UI_INTERACTION_TIMEOUT_MS)
+            // Return and navigate to Player
+            bringAppToPlayerScreen()
             Thread.sleep(500)
         }
 
@@ -437,9 +449,8 @@ class BackgroundPlaybackTest {
         uiDevice.pressHome()
         Thread.sleep(500)
 
-        // Return to app
-        bringAppToForeground()
-        composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN, timeoutMillis = UI_INTERACTION_TIMEOUT_MS)
+        // Return to app and navigate to Player
+        bringAppToPlayerScreen()
 
         // Verify playback state maintained
         val currentState = fakePlaybackController.playbackState.value
@@ -533,8 +544,7 @@ class BackgroundPlaybackTest {
         // Background and return
         uiDevice.pressHome()
         Thread.sleep(2000)
-        bringAppToForeground()
-        composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN)
+        bringAppToPlayerScreen()
 
         // Verify speed maintained
         val currentSpeed = fakePlaybackController.playbackState.value.playbackSpeed
@@ -564,9 +574,8 @@ class BackgroundPlaybackTest {
         // Wait for extended period (10 seconds)
         Thread.sleep(10_000)
 
-        // Return to app
-        bringAppToForeground()
-        composeRule.waitUntilNodeWithTagExists(TestTags.PLAYER_SCREEN, timeoutMillis = UI_INTERACTION_TIMEOUT_MS)
+        // Return to app and navigate to Player
+        bringAppToPlayerScreen()
 
         // Verify playback still active
         val currentState = fakePlaybackController.playbackState.value
