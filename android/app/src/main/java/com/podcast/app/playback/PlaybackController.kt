@@ -1,19 +1,14 @@
 package com.podcast.app.playback
 
 import android.content.Context
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
+import android.content.Intent
+import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
-import com.podcast.app.data.local.dao.DownloadDao
-import com.podcast.app.data.local.dao.EpisodeDao
-import com.podcast.app.data.local.dao.PlaybackProgressDao
-import com.podcast.app.data.local.dao.PodcastDao
-import com.podcast.app.data.local.entities.DownloadStatus
+import androidx.media3.common.util.UnstableApi
 import com.podcast.app.data.local.entities.Episode
-import com.podcast.app.data.local.entities.PlaybackProgress
+import com.podcast.app.util.DiagnosticLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,389 +19,169 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Controls podcast playback using Media3 ExoPlayer.
+ * Controls podcast playback by delegating to PlaybackService.
  *
- * Features:
- * - Play/pause/seek/skip controls
- * - Playback speed adjustment
- * - Progress tracking and persistence
- * - Chapter support
- * - Queue management
- * - Offline playback from downloaded files
+ * All playback goes through the foreground service so that Android
+ * keeps the process alive when the app is backgrounded. This class
+ * is a thin proxy: it starts the service, then forwards controls
+ * and observes state from the service's ExoPlayer instance.
+ *
+ * GH#28: Previously this class created its own ExoPlayer without a
+ * foreground service, causing Android to kill playback after ~1 minute.
  */
+@UnstableApi
 @Singleton
 class PlaybackController @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val episodeDao: EpisodeDao,
-    private val podcastDao: PodcastDao,
-    private val playbackProgressDao: PlaybackProgressDao,
-    private val downloadDao: DownloadDao
+    @ApplicationContext private val context: Context
 ) : IPlaybackController {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    companion object {
+        private const val TAG = "PlaybackController"
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var progressJob: Job? = null
 
     private val _playbackState = MutableStateFlow(PlaybackState())
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
     private val _currentEpisode = MutableStateFlow<Episode?>(null)
-    override val currentEpisode: StateFlow<Episode?> = _currentEpisode.asStateFlow()
+    override val currentEpisode: StateFlow<Episode?>
+        get() = service?.currentEpisode ?: _currentEpisode.asStateFlow()
 
     private val _queue = MutableStateFlow<List<Episode>>(emptyList())
-    override val queue: StateFlow<List<Episode>> = _queue.asStateFlow()
+    override val queue: StateFlow<List<Episode>>
+        get() = service?.queue ?: _queue.asStateFlow()
 
-    // Listener must be defined before player initialization
-    private val playerListener = object : Player.Listener {
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            updatePlaybackState { it.copy(isPlaying = isPlaying) }
-        }
-
-        override fun onPlaybackStateChanged(state: Int) {
-            val playerState = when (state) {
-                Player.STATE_IDLE -> PlayerState.IDLE
-                Player.STATE_BUFFERING -> PlayerState.BUFFERING
-                Player.STATE_READY -> PlayerState.READY
-                Player.STATE_ENDED -> PlayerState.ENDED
-                else -> PlayerState.IDLE
-            }
-            updatePlaybackState { it.copy(playerState = playerState) }
-
-            if (state == Player.STATE_ENDED) {
-                onPlaybackEnded()
-            }
-        }
-
-        override fun onPositionDiscontinuity(
-            oldPosition: Player.PositionInfo,
-            newPosition: Player.PositionInfo,
-            reason: Int
-        ) {
-            updatePosition()
-        }
-    }
-
-    // Audio attributes for podcast content
-    private val podcastAudioAttributes = AudioAttributes.Builder()
-        .setUsage(C.USAGE_MEDIA)
-        .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
-        .build()
-
-    // Lazy initialization with nullable backing field for proper release
-    private var _exoPlayer: ExoPlayer? = null
-    private val exoPlayer: ExoPlayer
-        get() {
-            if (_exoPlayer == null) {
-                _exoPlayer = ExoPlayer.Builder(context)
-                    .setHandleAudioBecomingNoisy(true)
-                    .build()
-                    .apply {
-                        // Configure audio attributes for speech content
-                        setAudioAttributes(podcastAudioAttributes, /* handleAudioFocus= */ true)
-                        addListener(playerListener)
-                    }
-            }
-            return _exoPlayer!!
-        }
+    /** Reference to the running service, if available. */
+    private val service: PlaybackService?
+        get() = PlaybackService.getInstance()
 
     /**
-     * Configure wake mode based on content source.
+     * Starts PlaybackService and tells it to play the given episode.
      *
-     * WAKE_MODE_LOCAL: Keeps CPU awake for downloaded content (no network needed)
-     * WAKE_MODE_NETWORK: Keeps CPU and WiFi/cell radio awake for streaming
-     *
-     * @param isLocalContent true if playing from downloaded file, false for streaming
-     */
-    private fun configureWakeMode(isLocalContent: Boolean) {
-        val wakeMode = if (isLocalContent) {
-            C.WAKE_MODE_LOCAL
-        } else {
-            C.WAKE_MODE_NETWORK
-        }
-        exoPlayer.setWakeMode(wakeMode)
-    }
-
-    /**
-     * Play a specific episode.
-     *
-     * If the episode has been downloaded, plays from local storage (works offline).
-     * Otherwise, streams from the network URL.
+     * The service runs as a foreground service with a persistent notification,
+     * which keeps Android from killing the process in the background.
      */
     override suspend fun playEpisode(episodeId: Long, startPositionMs: Int) {
-        val episode = episodeDao.getEpisodeById(episodeId) ?: return
+        DiagnosticLogger.i(TAG, "playEpisode: starting PlaybackService for episode=$episodeId, startPos=$startPositionMs")
 
-        _currentEpisode.value = episode
-
-        // Check for completed download to enable offline playback
-        val (audioUri, isLocalContent) = getPlayableUriWithSource(episodeId, episode.audioUrl)
-
-        // Configure wake mode based on content source
-        // WAKE_MODE_LOCAL for downloaded content, WAKE_MODE_NETWORK for streaming
-        configureWakeMode(isLocalContent)
-
-        val mediaItem = MediaItem.Builder()
-            .setMediaId(episode.id.toString())
-            .setUri(audioUri)
-            .build()
-
-        exoPlayer.apply {
-            setMediaItem(mediaItem)
-            prepare()
-
-            // Restore position if available
-            val savedProgress = playbackProgressDao.getProgress(episodeId)
-            val position = if (startPositionMs > 0) {
-                startPositionMs.toLong()
-            } else {
-                (savedProgress?.positionSeconds ?: 0) * 1000L
-            }
-
-            if (position > 0) {
-                seekTo(position)
-            }
-
-            // Restore playback speed
-            val speed = savedProgress?.playbackSpeed ?: 1.0f
-            playbackParameters = PlaybackParameters(speed)
-
-            play()
+        val intent = Intent(context, PlaybackService::class.java).apply {
+            action = PlaybackService.ACTION_PLAY_EPISODE
+            putExtra(PlaybackService.EXTRA_EPISODE_ID, episodeId)
+            putExtra(PlaybackService.EXTRA_START_POSITION_MS, startPositionMs.toLong())
         }
 
-        startProgressTracking()
+        ContextCompat.startForegroundService(context, intent)
+
+        // Start observing the service's player state
+        startStateObserver()
     }
 
-    /**
-     * Result containing playable URI and source information.
-     *
-     * @property uri The URI to play (file:// for local, https:// for streaming)
-     * @property isLocal true if playing from downloaded file, false for streaming
-     */
-    private data class PlayableSource(val uri: String, val isLocal: Boolean)
-
-    /**
-     * Gets the playable URI and source type for an episode.
-     *
-     * Returns the local file path if a completed download exists and the file is accessible,
-     * otherwise returns the network audio URL. Also indicates whether the content is local
-     * for proper wake mode configuration.
-     *
-     * @param episodeId The episode ID to check for downloads
-     * @param fallbackUrl The network URL to use if no download is available
-     * @return PlayableSource with URI and local/streaming indicator
-     */
-    private suspend fun getPlayableUriWithSource(episodeId: Long, fallbackUrl: String): PlayableSource {
-        return withContext(Dispatchers.IO) {
-            try {
-                val download = downloadDao.getDownload(episodeId)
-                if (download != null &&
-                    download.status == DownloadStatus.COMPLETED &&
-                    download.filePath.isNotBlank()
-                ) {
-                    val file = File(download.filePath)
-                    if (file.exists() && file.canRead()) {
-                        // Use local file for offline playback
-                        PlayableSource("file://${file.absolutePath}", isLocal = true)
-                    } else {
-                        // File missing or unreadable, fall back to network
-                        PlayableSource(fallbackUrl, isLocal = false)
-                    }
-                } else {
-                    // No completed download, use network URL
-                    PlayableSource(fallbackUrl, isLocal = false)
-                }
-            } catch (e: Exception) {
-                // On any error, fall back to network URL
-                PlayableSource(fallbackUrl, isLocal = false)
-            }
-        }
-    }
-
-    /**
-     * Pause playback.
-     */
     override fun pause() {
-        _exoPlayer?.pause()
-        saveCurrentProgress()
+        DiagnosticLogger.d(TAG, "pause")
+        service?.pause() ?: DiagnosticLogger.w(TAG, "pause: service not running")
     }
 
-    /**
-     * Resume playback.
-     */
     override fun resume() {
-        _exoPlayer?.play()
+        DiagnosticLogger.d(TAG, "resume")
+        service?.resume() ?: DiagnosticLogger.w(TAG, "resume: service not running")
     }
 
-    /**
-     * Toggle play/pause.
-     */
     override fun togglePlayPause() {
-        val player = _exoPlayer ?: return
-        if (player.isPlaying) {
-            pause()
-        } else {
-            resume()
-        }
+        service?.togglePlayPause() ?: DiagnosticLogger.w(TAG, "togglePlayPause: service not running")
     }
 
-    /**
-     * Seek to a specific position.
-     */
     override fun seekTo(positionMs: Long) {
-        _exoPlayer?.seekTo(positionMs)
-        updatePosition()
+        service?.seekTo(positionMs) ?: DiagnosticLogger.w(TAG, "seekTo: service not running")
     }
 
-    /**
-     * Skip forward by specified seconds.
-     */
     override fun skipForward(seconds: Int) {
-        val player = _exoPlayer ?: return
-        val newPosition = (player.currentPosition + seconds * 1000).coerceAtMost(player.duration)
-        seekTo(newPosition)
+        service?.skipForward(seconds) ?: DiagnosticLogger.w(TAG, "skipForward: service not running")
     }
 
-    /**
-     * Skip backward by specified seconds.
-     */
     override fun skipBackward(seconds: Int) {
-        val player = _exoPlayer ?: return
-        val newPosition = (player.currentPosition - seconds * 1000).coerceAtLeast(0)
-        seekTo(newPosition)
+        service?.skipBackward(seconds) ?: DiagnosticLogger.w(TAG, "skipBackward: service not running")
     }
 
-    /**
-     * Set playback speed.
-     */
     override fun setPlaybackSpeed(speed: Float) {
-        val validSpeed = speed.coerceIn(0.5f, 3.0f)
-        _exoPlayer?.playbackParameters = PlaybackParameters(validSpeed)
-        updatePlaybackState { it.copy(playbackSpeed = validSpeed) }
+        service?.setPlaybackSpeed(speed) ?: DiagnosticLogger.w(TAG, "setPlaybackSpeed: service not running")
     }
 
-    /**
-     * Stop playback and release resources.
-     */
     override fun stop() {
-        saveCurrentProgress()
-        _exoPlayer?.stop()
-        _currentEpisode.value = null
+        DiagnosticLogger.i(TAG, "stop")
+        service?.stop()
         progressJob?.cancel()
     }
 
-    /**
-     * Add episode to queue.
-     */
     override fun addToQueue(episode: Episode) {
-        _queue.value = _queue.value + episode
+        service?.addToQueue(episode) ?: run {
+            _queue.value = _queue.value + episode
+        }
     }
 
-    /**
-     * Remove episode from queue.
-     */
     override fun removeFromQueue(episode: Episode) {
-        _queue.value = _queue.value.filter { it.id != episode.id }
+        service?.removeFromQueue(episode) ?: run {
+            _queue.value = _queue.value.filter { it.id != episode.id }
+        }
     }
 
-    /**
-     * Clear the queue.
-     */
     override fun clearQueue() {
-        _queue.value = emptyList()
+        service?.clearQueue() ?: run {
+            _queue.value = emptyList()
+        }
     }
 
-    /**
-     * Play next episode in queue.
-     */
     override suspend fun playNext() {
-        val nextEpisode = _queue.value.firstOrNull()
-        if (nextEpisode != null) {
-            _queue.value = _queue.value.drop(1)
-            playEpisode(nextEpisode.id)
-        }
+        service?.playNext() ?: DiagnosticLogger.w(TAG, "playNext: service not running")
     }
 
-    /**
-     * Get current playback status for MCP.
-     */
-    override fun getPlaybackStatus(): PlaybackState = _playbackState.value
-
-    private fun startProgressTracking() {
-        progressJob?.cancel()
-        progressJob = scope.launch {
-            while (true) {
-                updatePosition()
-                saveCurrentProgress()
-                delay(5000) // Save progress every 5 seconds
-            }
-        }
-    }
-
-    private fun updatePosition() {
-        val player = _exoPlayer ?: return
-        updatePlaybackState {
-            it.copy(
-                positionMs = player.currentPosition,
-                durationMs = player.duration.coerceAtLeast(0)
-            )
-        }
-    }
-
-    private fun saveCurrentProgress() {
-        val episode = _currentEpisode.value ?: return
-        val player = _exoPlayer ?: return
-
-        // Capture player values on main thread (ExoPlayer requirement)
-        val positionMs = player.currentPosition
-        val durationMs = player.duration
-        val speed = _playbackState.value.playbackSpeed
-
-        scope.launch(Dispatchers.IO) {
-            try {
-                val progress = PlaybackProgress(
-                    episodeId = episode.id,
-                    positionSeconds = (positionMs / 1000).toInt(),
-                    durationSeconds = (durationMs / 1000).toInt(),
-                    lastPlayedAt = System.currentTimeMillis(),
-                    playbackSpeed = speed
-                )
-                playbackProgressDao.insertOrUpdate(progress)
-            } catch (e: Exception) {
-                // Ignore FK constraint failures - episode may have been deleted
-                // or test database cleared. Progress saving is non-critical.
-            }
-        }
-    }
-
-    private fun onPlaybackEnded() {
-        val episode = _currentEpisode.value ?: return
-
-        scope.launch(Dispatchers.IO) {
-            try {
-                playbackProgressDao.markAsCompleted(episode.id)
-            } catch (e: Exception) {
-                // Ignore FK constraint failures - episode may have been deleted
-            }
-        }
-
-        // Auto-play next in queue
-        scope.launch {
-            playNext()
-        }
-    }
-
-    private inline fun updatePlaybackState(update: (PlaybackState) -> PlaybackState) {
-        _playbackState.value = update(_playbackState.value)
+    override fun getPlaybackStatus(): PlaybackState {
+        return service?.getPlaybackStatus() ?: _playbackState.value
     }
 
     override fun release() {
         progressJob?.cancel()
-        _exoPlayer?.release()
-        _exoPlayer = null
+    }
+
+    /**
+     * Periodically polls the service's player for position and state updates,
+     * and publishes them to [playbackState] so UI components stay in sync.
+     */
+    private fun startStateObserver() {
+        progressJob?.cancel()
+        progressJob = scope.launch {
+            DiagnosticLogger.d(TAG, "startStateObserver: polling service state every 1s")
+            while (true) {
+                val svc = service
+                if (svc != null) {
+                    val player = svc.getPlayer()
+                    if (player != null) {
+                        _playbackState.value = PlaybackState(
+                            isPlaying = player.isPlaying,
+                            playerState = when (player.playbackState) {
+                                Player.STATE_IDLE -> PlayerState.IDLE
+                                Player.STATE_BUFFERING -> PlayerState.BUFFERING
+                                Player.STATE_READY -> PlayerState.READY
+                                Player.STATE_ENDED -> PlayerState.ENDED
+                                else -> PlayerState.IDLE
+                            },
+                            positionMs = player.currentPosition,
+                            durationMs = player.duration.coerceAtLeast(0),
+                            playbackSpeed = player.playbackParameters.speed
+                        )
+                    }
+                    // Also sync currentEpisode and queue for callers using our local flows
+                    _currentEpisode.value = svc.currentEpisode.value
+                    _queue.value = svc.queue.value
+                }
+                delay(1000)
+            }
+        }
     }
 }
 
