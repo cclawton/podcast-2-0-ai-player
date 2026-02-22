@@ -29,6 +29,9 @@ kotlin.code.style=official
 # thereby reducing the size of the R class for that library
 android.nonTransitiveRClass=true
 
+# Force R8 to single-threaded to avoid ConcurrentModificationException bug
+android.enableR8.threads=1
+
 # Enable configuration caching for faster builds
 org.gradle.configuration-cache=true
 
