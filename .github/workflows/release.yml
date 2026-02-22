@@ -69,13 +69,23 @@ jobs:
           git.branch=${GITHUB_REF_NAME}
           EOF
 
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.jks
+          echo "KEYSTORE_FILE=$(pwd)/android/app/release.jks" >> $GITHUB_ENV
+          echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+
       - name: Run unit tests
         working-directory: android
         run: ./gradlew testReleaseUnitTest --stacktrace
 
-      - name: Build debug APK (signed with debug key)
+      - name: Build release APK
         working-directory: android
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleRelease --stacktrace
 
       - name: Generate changelog
         id: changelog
@@ -97,8 +107,8 @@ jobs:
 
       - name: Rename APK with version
         run: |
-          mv android/app/build/outputs/apk/debug/app-debug.apk \
-             android/app/build/outputs/apk/debug/podcast-app-${{ steps.version.outputs.version }}-debug.apk
+          mv android/app/build/outputs/apk/release/app-release.apk \
+             android/app/build/outputs/apk/release/podcast-app-${{ steps.version.outputs.version }}.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -108,14 +118,14 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
           files: |
-            android/app/build/outputs/apk/debug/podcast-app-${{ steps.version.outputs.version }}-debug.apk
+            android/app/build/outputs/apk/release/podcast-app-${{ steps.version.outputs.version }}.apk
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload debug APK artifact
+      - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk-${{ steps.version.outputs.version }}
-          path: android/app/build/outputs/apk/debug/podcast-app-${{ steps.version.outputs.version }}-debug.apk
+          name: release-apk-${{ steps.version.outputs.version }}
+          path: android/app/build/outputs/apk/release/podcast-app-${{ steps.version.outputs.version }}.apk
           retention-days: 90

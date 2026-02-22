@@ -11,6 +11,22 @@ android {
     namespace = "com.podcast.app"
     compileSdk = 35
 
+    signingConfigs {
+        create("release") {
+            val ksFile = System.getenv("KEYSTORE_FILE") ?: findProperty("KEYSTORE_FILE")?.toString()
+            val ksPwd = System.getenv("KEYSTORE_PASSWORD") ?: findProperty("KEYSTORE_PASSWORD")?.toString()
+            val keyAlias = System.getenv("KEY_ALIAS") ?: findProperty("KEY_ALIAS")?.toString()
+            val keyPwd = System.getenv("KEY_PASSWORD") ?: findProperty("KEY_PASSWORD")?.toString()
+
+            if (ksFile != null && ksPwd != null && keyAlias != null && keyPwd != null) {
+                storeFile = file(ksFile)
+                storePassword = ksPwd
+                this.keyAlias = keyAlias
+                keyPassword = keyPwd
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.podcast.app"
         minSdk = 28
@@ -39,6 +55,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
