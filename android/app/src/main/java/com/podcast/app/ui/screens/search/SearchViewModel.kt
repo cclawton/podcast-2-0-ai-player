@@ -35,6 +35,20 @@ class SearchViewModel @Inject constructor(
     private val playbackController: PlaybackController
 ) : ViewModel() {
 
+    // GH#42: Expose playback state for MiniPlayer on SearchScreen
+    val currentEpisode: StateFlow<Episode?> = playbackController.currentEpisode
+    val playbackState: StateFlow<com.podcast.app.playback.PlaybackState> = playbackController.playbackState
+
+    fun togglePlayPause() {
+        playbackController.togglePlayPause()
+    }
+
+    fun skipNext() {
+        viewModelScope.launch {
+            playbackController.playNext()
+        }
+    }
+
     companion object {
         private const val TAG = "SearchViewModel"
     }

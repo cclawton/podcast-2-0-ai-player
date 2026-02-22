@@ -76,6 +76,7 @@ import com.podcast.app.data.local.entities.DownloadStatus
 import com.podcast.app.ui.Screen
 import com.podcast.app.ui.components.EmptyState
 import com.podcast.app.ui.components.LoadingState
+import com.podcast.app.ui.components.MiniPlayer
 import com.podcast.app.ui.components.NetworkDisabledBanner
 import com.podcast.app.ui.components.PodcastCard
 import com.podcast.app.util.TestTags
@@ -114,6 +115,10 @@ fun SearchScreen(
 
     // GH#35: Determine if AI search has active results
     val hasAiResults = aiSearchResults.isNotEmpty() || aiEpisodeResults.isNotEmpty()
+
+    // GH#42: Playback state for MiniPlayer
+    val currentEpisode by viewModel.currentEpisode.collectAsState()
+    val playbackState by viewModel.playbackState.collectAsState()
 
     // GH#38: Episode download states for AI search results
     val episodeDownloadStates by viewModel.episodeDownloadStates.collectAsState()
@@ -173,7 +178,7 @@ fun SearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Search Podcasts") },
+                title = { Text(if (showAiSearch) "AI Search" else "Search Podcasts") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -218,7 +223,16 @@ fun SearchScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            MiniPlayer(
+                episode = currentEpisode,
+                playbackState = playbackState,
+                onPlayPauseClick = { viewModel.togglePlayPause() },
+                onSkipNextClick = { viewModel.skipNext() },
+                onClick = { navController.navigate(Screen.Player.route) }
+            )
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier

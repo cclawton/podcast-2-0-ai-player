@@ -172,7 +172,8 @@ class PlaybackController @Inject constructor(
                             },
                             positionMs = player.currentPosition,
                             durationMs = player.duration.coerceAtLeast(0),
-                            playbackSpeed = player.playbackParameters.speed
+                            playbackSpeed = player.playbackParameters.speed,
+                            isLocalPlayback = svc.isLocalPlayback.value
                         )
                     }
                     // Also sync currentEpisode and queue for callers using our local flows
@@ -190,7 +191,8 @@ data class PlaybackState(
     val playerState: PlayerState = PlayerState.IDLE,
     val positionMs: Long = 0,
     val durationMs: Long = 0,
-    val playbackSpeed: Float = 1.0f
+    val playbackSpeed: Float = 1.0f,
+    val isLocalPlayback: Boolean = false
 ) {
     val positionSeconds: Int get() = (positionMs / 1000).toInt()
     val durationSeconds: Int get() = (durationMs / 1000).toInt()

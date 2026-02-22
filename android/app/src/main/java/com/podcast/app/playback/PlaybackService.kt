@@ -134,6 +134,10 @@ class PlaybackService : MediaSessionService() {
     private val _queue = MutableStateFlow<List<Episode>>(emptyList())
     val queue: StateFlow<List<Episode>> = _queue.asStateFlow()
 
+    // GH#46: Track whether current playback is from local file or streaming
+    private val _isLocalPlayback = MutableStateFlow(false)
+    val isLocalPlayback: StateFlow<Boolean> = _isLocalPlayback.asStateFlow()
+
     override fun onCreate() {
         super.onCreate()
         DiagnosticLogger.i(TAG, "onCreate: PlaybackService starting")
@@ -378,6 +382,7 @@ class PlaybackService : MediaSessionService() {
             // Check for completed download to enable offline playback
             val audioUri = getPlayableUri(episodeId, episode.audioUrl)
             val isLocal = audioUri.startsWith("file://")
+            _isLocalPlayback.value = isLocal
             DiagnosticLogger.i(TAG, "playEpisode: source=${if (isLocal) "LOCAL" else "STREAMING"}, title='${episode.title}'")
 
             // Build media item with metadata for notification
