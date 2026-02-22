@@ -12,6 +12,7 @@ import androidx.media3.session.MediaStyleNotificationHelper
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.podcast.app.R
+import com.podcast.app.util.DiagnosticLogger
 
 /**
  * Custom MediaNotification.Provider that throttles notification updates.
@@ -32,12 +33,16 @@ class ThrottledMediaNotificationProvider(
 ) : MediaNotification.Provider {
 
     companion object {
+        private const val TAG = "ThrottledNotification"
         const val NOTIFICATION_ID = 10116  // Match the ID from logs for continuity
         const val CHANNEL_ID = PlaybackService.NOTIFICATION_CHANNEL_ID
 
         // Throttle to max 1 update per second (well under 5.0/sec limit)
         private const val MIN_UPDATE_INTERVAL_MS = 1000L
     }
+
+    private var throttleCount = 0L
+    private var updateCount = 0L
 
     private var lastUpdateTimeMs = 0L
     private var lastPlaybackState: Int = Player.STATE_IDLE
@@ -61,6 +66,11 @@ class ThrottledMediaNotificationProvider(
 
         // Always update on state changes; throttle position-only updates
         if (!isStateChange && (currentTimeMs - lastUpdateTimeMs) < MIN_UPDATE_INTERVAL_MS) {
+            throttleCount++
+            // Log every 60 throttles (~1 minute)
+            if (throttleCount % 60 == 0L) {
+                DiagnosticLogger.d(TAG, "throttled $throttleCount updates so far (updated $updateCount)")
+            }
             // Return the cached notification without rebuilding
             cachedNotification?.let { cached ->
                 return MediaNotification(NOTIFICATION_ID, cached)
@@ -71,6 +81,11 @@ class ThrottledMediaNotificationProvider(
         lastUpdateTimeMs = currentTimeMs
         lastPlaybackState = player.playbackState
         lastIsPlaying = player.isPlaying
+        updateCount++
+
+        if (isStateChange) {
+            DiagnosticLogger.i(TAG, "state change notification: isPlaying=${player.isPlaying}, state=${player.playbackState}")
+        }
 
         // Build and cache the new notification
         val notification = buildNotification(mediaSession)

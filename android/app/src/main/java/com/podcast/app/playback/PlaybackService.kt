@@ -31,6 +31,7 @@ import com.podcast.app.data.local.entities.DownloadStatus
 import com.podcast.app.data.local.entities.Episode
 import com.podcast.app.data.local.entities.PlaybackProgress
 import com.podcast.app.ui.MainActivity
+import com.podcast.app.util.DiagnosticLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -70,6 +71,7 @@ import javax.inject.Inject
 class PlaybackService : MediaSessionService() {
 
     companion object {
+        private const val TAG = "PlaybackService"
         const val NOTIFICATION_CHANNEL_ID = "podcast_playback_channel"
         const val NOTIFICATION_ID = 1001
 
@@ -134,10 +136,12 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        DiagnosticLogger.i(TAG, "onCreate: PlaybackService starting")
         instance = this
         createNotificationChannel()
         configureNotificationProvider()
         initializePlayer()
+        DiagnosticLogger.i(TAG, "onCreate: PlaybackService ready")
     }
 
     /**
@@ -179,6 +183,8 @@ class PlaybackService : MediaSessionService() {
      * - AUDIO_CONTENT_TYPE_SPEECH: Optimized for podcast content
      */
     private fun initializePlayer() {
+        DiagnosticLogger.d(TAG, "initializePlayer: creating ExoPlayer with WAKE_MODE_LOCAL, handleAudioFocus=true, handleAudioBecomingNoisy=true")
+
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
@@ -195,6 +201,7 @@ class PlaybackService : MediaSessionService() {
                     .build()
 
                 player.addListener(playerListener)
+                DiagnosticLogger.i(TAG, "initializePlayer: ExoPlayer created, MediaSession active")
             }
     }
 
@@ -203,13 +210,25 @@ class PlaybackService : MediaSessionService() {
      */
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            DiagnosticLogger.i(TAG, "onIsPlayingChanged: isPlaying=$isPlaying, position=${exoPlayer?.currentPosition}ms")
             updatePlaybackState { it.copy(isPlaying = isPlaying) }
             if (isPlaying) {
                 startForegroundWithNotification()
+            } else {
+                DiagnosticLogger.w(TAG, "onIsPlayingChanged: playback STOPPED — playWhenReady=${exoPlayer?.playWhenReady}, state=${exoPlayer?.playbackState}, suppressionReason=${exoPlayer?.playbackSuppressionReason}")
             }
         }
 
         override fun onPlaybackStateChanged(state: Int) {
+            val stateName = when (state) {
+                Player.STATE_IDLE -> "IDLE"
+                Player.STATE_BUFFERING -> "BUFFERING"
+                Player.STATE_READY -> "READY"
+                Player.STATE_ENDED -> "ENDED"
+                else -> "UNKNOWN($state)"
+            }
+            DiagnosticLogger.i(TAG, "onPlaybackStateChanged: $stateName, playWhenReady=${exoPlayer?.playWhenReady}, position=${exoPlayer?.currentPosition}ms")
+
             val playerState = when (state) {
                 Player.STATE_IDLE -> PlayerState.IDLE
                 Player.STATE_BUFFERING -> PlayerState.BUFFERING
@@ -220,9 +239,23 @@ class PlaybackService : MediaSessionService() {
             updatePlaybackState { it.copy(playerState = playerState) }
 
             if (state == Player.STATE_ENDED) {
+                DiagnosticLogger.i(TAG, "onPlaybackStateChanged: playback ENDED, detaching foreground")
                 onPlaybackEnded()
                 stopForeground(STOP_FOREGROUND_DETACH)
             }
+        }
+
+        override fun onPlaybackSuppressionReasonChanged(reason: Int) {
+            val reasonName = when (reason) {
+                Player.PLAYBACK_SUPPRESSION_REASON_NONE -> "NONE"
+                Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS -> "TRANSIENT_AUDIO_FOCUS_LOSS"
+                else -> "UNKNOWN($reason)"
+            }
+            DiagnosticLogger.w(TAG, "onPlaybackSuppressionReasonChanged: $reasonName")
+        }
+
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            DiagnosticLogger.e(TAG, "onPlayerError: code=${error.errorCode}, message=${error.message}")
         }
 
         override fun onPositionDiscontinuity(
@@ -230,10 +263,21 @@ class PlaybackService : MediaSessionService() {
             newPosition: Player.PositionInfo,
             reason: Int
         ) {
+            val reasonName = when (reason) {
+                Player.DISCONTINUITY_REASON_AUTO_TRANSITION -> "AUTO_TRANSITION"
+                Player.DISCONTINUITY_REASON_SEEK -> "SEEK"
+                Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT -> "SEEK_ADJUSTMENT"
+                Player.DISCONTINUITY_REASON_SKIP -> "SKIP"
+                Player.DISCONTINUITY_REASON_REMOVE -> "REMOVE"
+                Player.DISCONTINUITY_REASON_INTERNAL -> "INTERNAL"
+                else -> "UNKNOWN($reason)"
+            }
+            DiagnosticLogger.d(TAG, "onPositionDiscontinuity: $reasonName, ${oldPosition.positionMs}ms -> ${newPosition.positionMs}ms")
             updatePosition()
         }
 
         override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+            DiagnosticLogger.d(TAG, "onPlaybackParametersChanged: speed=${playbackParameters.speed}")
             updatePlaybackState { it.copy(playbackSpeed = playbackParameters.speed) }
         }
     }
@@ -258,8 +302,13 @@ class PlaybackService : MediaSessionService() {
      * This is required to prevent Android from killing the service.
      */
     private fun startForegroundWithNotification() {
-        val notification = buildNotification()
-        startForeground(NOTIFICATION_ID, notification)
+        try {
+            val notification = buildNotification()
+            startForeground(NOTIFICATION_ID, notification)
+            DiagnosticLogger.d(TAG, "startForeground: notification posted successfully")
+        } catch (e: Exception) {
+            DiagnosticLogger.e(TAG, "startForeground FAILED", e)
+        }
     }
 
     /**
@@ -289,9 +338,11 @@ class PlaybackService : MediaSessionService() {
      * Handle start commands to play specific episodes.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        DiagnosticLogger.d(TAG, "onStartCommand: action=${intent?.action}, flags=$flags, startId=$startId")
         if (intent?.action == ACTION_PLAY_EPISODE) {
             val episodeId = intent.getLongExtra(EXTRA_EPISODE_ID, -1)
             val startPositionMs = intent.getLongExtra(EXTRA_START_POSITION_MS, 0)
+            DiagnosticLogger.i(TAG, "onStartCommand: PLAY_EPISODE episodeId=$episodeId, startPosition=${startPositionMs}ms")
             if (episodeId > 0) {
                 playEpisode(episodeId, startPositionMs)
             }
@@ -306,10 +357,15 @@ class PlaybackService : MediaSessionService() {
      * Otherwise, streams from the network URL.
      */
     fun playEpisode(episodeId: Long, startPositionMs: Long = 0) {
+        DiagnosticLogger.i(TAG, "playEpisode: episodeId=$episodeId, startPositionMs=$startPositionMs")
         serviceScope.launch {
             val episode = withContext(Dispatchers.IO) {
                 episodeDao.getEpisodeById(episodeId)
-            } ?: return@launch
+            }
+            if (episode == null) {
+                DiagnosticLogger.e(TAG, "playEpisode: episode $episodeId not found in database")
+                return@launch
+            }
 
             // Fetch podcast title for notification
             val podcastTitle = withContext(Dispatchers.IO) {
@@ -321,6 +377,8 @@ class PlaybackService : MediaSessionService() {
 
             // Check for completed download to enable offline playback
             val audioUri = getPlayableUri(episodeId, episode.audioUrl)
+            val isLocal = audioUri.startsWith("file://")
+            DiagnosticLogger.i(TAG, "playEpisode: source=${if (isLocal) "LOCAL" else "STREAMING"}, title='${episode.title}'")
 
             // Build media item with metadata for notification
             val mediaItem = MediaItem.Builder()
@@ -358,7 +416,8 @@ class PlaybackService : MediaSessionService() {
                 playbackParameters = PlaybackParameters(speed)
 
                 play()
-            }
+                DiagnosticLogger.i(TAG, "playEpisode: play() called, seekTo=${position}ms, speed=$speed")
+            } ?: DiagnosticLogger.e(TAG, "playEpisode: exoPlayer is null!")
 
             startProgressTracking()
         }
@@ -386,6 +445,7 @@ class PlaybackService : MediaSessionService() {
                     fallbackUrl
                 }
             } catch (e: Exception) {
+                DiagnosticLogger.e(TAG, "getPlayableUri: error checking download", e)
                 fallbackUrl
             }
         }
@@ -395,6 +455,7 @@ class PlaybackService : MediaSessionService() {
      * Pauses playback and saves progress.
      */
     fun pause() {
+        DiagnosticLogger.i(TAG, "pause: position=${exoPlayer?.currentPosition}ms")
         exoPlayer?.pause()
         saveCurrentProgress()
     }
@@ -403,6 +464,7 @@ class PlaybackService : MediaSessionService() {
      * Resumes playback.
      */
     fun resume() {
+        DiagnosticLogger.i(TAG, "resume: position=${exoPlayer?.currentPosition}ms")
         exoPlayer?.play()
     }
 
@@ -513,10 +575,17 @@ class PlaybackService : MediaSessionService() {
      */
     private fun startProgressTracking() {
         progressJob?.cancel()
+        DiagnosticLogger.d(TAG, "startProgressTracking: starting 5s progress loop")
         progressJob = serviceScope.launch {
+            var tickCount = 0L
             while (true) {
                 updatePosition()
                 saveCurrentProgress()
+                tickCount++
+                // Log a heartbeat every 12 ticks (60 seconds) so we can see if it stops
+                if (tickCount % 12 == 0L) {
+                    DiagnosticLogger.d(TAG, "progressHeartbeat: tick=$tickCount, isPlaying=${exoPlayer?.isPlaying}, position=${exoPlayer?.currentPosition}ms, playWhenReady=${exoPlayer?.playWhenReady}, state=${exoPlayer?.playbackState}")
+                }
                 delay(5000) // Save progress every 5 seconds
             }
         }
@@ -557,7 +626,7 @@ class PlaybackService : MediaSessionService() {
                 )
                 playbackProgressDao.insertOrUpdate(progress)
             } catch (e: Exception) {
-                // Ignore FK constraint failures
+                DiagnosticLogger.e(TAG, "saveCurrentProgress: failed", e)
             }
         }
     }
@@ -567,12 +636,13 @@ class PlaybackService : MediaSessionService() {
      */
     private fun onPlaybackEnded() {
         val episode = _currentEpisode.value ?: return
+        DiagnosticLogger.i(TAG, "onPlaybackEnded: episode=${episode.id}")
 
         serviceScope.launch(Dispatchers.IO) {
             try {
                 playbackProgressDao.markAsCompleted(episode.id)
             } catch (e: Exception) {
-                // Ignore FK constraint failures
+                DiagnosticLogger.e(TAG, "onPlaybackEnded: failed to mark complete", e)
             }
         }
 
@@ -603,8 +673,14 @@ class PlaybackService : MediaSessionService() {
      */
     override fun onTaskRemoved(rootIntent: Intent?) {
         val player = mediaSession?.player
+        val isPlaying = player?.playWhenReady == true
+        val hasMedia = (player?.mediaItemCount ?: 0) > 0
+        DiagnosticLogger.w(TAG, "onTaskRemoved: player=${player != null}, playWhenReady=$isPlaying, mediaItems=${player?.mediaItemCount}, isPlaying=${player?.isPlaying}")
         if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
+            DiagnosticLogger.w(TAG, "onTaskRemoved: stopping service (not playing)")
             stopSelf()
+        } else {
+            DiagnosticLogger.i(TAG, "onTaskRemoved: keeping service alive (still playing)")
         }
     }
 
@@ -612,6 +688,7 @@ class PlaybackService : MediaSessionService() {
      * Releases all resources when the service is destroyed.
      */
     override fun onDestroy() {
+        DiagnosticLogger.w(TAG, "onDestroy: PlaybackService being destroyed! isPlaying=${exoPlayer?.isPlaying}, position=${exoPlayer?.currentPosition}ms")
         instance = null
 
         // Save final progress before destroying
@@ -627,6 +704,7 @@ class PlaybackService : MediaSessionService() {
         }
         mediaSession = null
         exoPlayer = null
+        DiagnosticLogger.w(TAG, "onDestroy: PlaybackService destroyed, all resources released")
         super.onDestroy()
     }
 }
