@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dcom.android.tools.r8.threading.count=1"
 
 jobs:
   release:
