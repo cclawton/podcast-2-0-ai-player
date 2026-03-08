@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "android",
+  "project_id": "9e4ea8a2-f3e2-4349-a37a-5db21e2ee1a3"
+}
