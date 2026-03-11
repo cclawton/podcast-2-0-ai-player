@@ -146,7 +146,7 @@ fun PlayerScreen(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().testTag(TestTags.PLAYBACK_SOURCE_INDICATOR)
                 ) {
                     Icon(
                         imageVector = if (playbackState.isLocalPlayback) Icons.Default.DownloadDone else Icons.Default.Cloud,

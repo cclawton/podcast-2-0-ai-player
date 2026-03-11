@@ -17,10 +17,12 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaController
+import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.podcast.app.R
 import com.podcast.app.data.local.dao.DownloadDao
@@ -42,6 +44,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -68,7 +71,7 @@ import javax.inject.Inject
  */
 @UnstableApi
 @AndroidEntryPoint
-class PlaybackService : MediaSessionService() {
+class PlaybackService : MediaLibraryService() {
 
     companion object {
         private const val TAG = "PlaybackService"
@@ -80,20 +83,21 @@ class PlaybackService : MediaSessionService() {
         const val EXTRA_EPISODE_ID = "episode_id"
         const val EXTRA_START_POSITION_MS = "start_position_ms"
 
+        // GH#22: Android Auto browse tree node IDs
+        private const val MEDIA_ROOT_ID = "root"
+        private const val MEDIA_SUBSCRIPTIONS_ID = "subscriptions"
+        private const val MEDIA_RECENT_ID = "recent"
+        private const val MEDIA_QUEUE_ID = "queue"
+        private const val MEDIA_DOWNLOADS_ID = "downloads"
+        private const val MEDIA_PODCAST_PREFIX = "podcast:"
+        private const val MEDIA_EPISODE_PREFIX = "episode:"
+
         // Singleton for service access (set when service is created)
         @Volatile
         private var instance: PlaybackService? = null
 
-        /**
-         * Gets the current service instance, if running.
-         * Returns null if service is not started.
-         */
         fun getInstance(): PlaybackService? = instance
 
-        /**
-         * Gets a MediaController connected to this service.
-         * Use this for UI components to control playback.
-         */
         fun getController(context: Context): ListenableFuture<MediaController> {
             val sessionToken = SessionToken(
                 context,
@@ -115,7 +119,7 @@ class PlaybackService : MediaSessionService() {
     @Inject
     lateinit var downloadDao: DownloadDao
 
-    private var mediaSession: MediaSession? = null
+    private var mediaSession: MediaLibrarySession? = null
     private var exoPlayer: ExoPlayer? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -200,12 +204,13 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
             .also { player ->
-                mediaSession = MediaSession.Builder(this, player)
+                // GH#22: Use MediaLibrarySession for Android Auto browsable content
+                mediaSession = MediaLibrarySession.Builder(this, player, librarySessionCallback)
                     .setSessionActivity(createMainActivityPendingIntent())
                     .build()
 
                 player.addListener(playerListener)
-                DiagnosticLogger.i(TAG, "initializePlayer: ExoPlayer created, MediaSession active")
+                DiagnosticLogger.i(TAG, "initializePlayer: ExoPlayer created, MediaLibrarySession active (Android Auto ready)")
             }
     }
 
@@ -664,11 +669,165 @@ class PlaybackService : MediaSessionService() {
         _playbackState.value = update(_playbackState.value)
     }
 
+    // ================================
+    // GH#22: Android Auto browsable content
+    // ================================
+
     /**
-     * Returns the MediaSession for this service.
-     * Called by the system when a controller wants to connect.
+     * Callback for MediaLibrarySession that serves browsable content to Android Auto.
+     * Provides: Subscriptions, Recent Episodes, Queue, Downloads.
      */
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
+    private val librarySessionCallback = object : MediaLibrarySession.Callback {
+
+        override fun onGetLibraryRoot(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            params: LibraryParams?
+        ): ListenableFuture<LibraryResult<MediaItem>> {
+            val rootItem = MediaItem.Builder()
+                .setMediaId(MEDIA_ROOT_ID)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setIsBrowsable(true)
+                        .setIsPlayable(false)
+                        .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
+                        .setTitle(getString(R.string.app_name))
+                        .build()
+                )
+                .build()
+            return Futures.immediateFuture(LibraryResult.ofItem(rootItem, params))
+        }
+
+        override fun onGetChildren(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            parentId: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?
+        ): ListenableFuture<LibraryResult<com.google.common.collect.ImmutableList<MediaItem>>> {
+            val items = kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                buildChildren(parentId)
+            }
+            return Futures.immediateFuture(LibraryResult.ofItemList(items, params))
+        }
+
+        override fun onGetItem(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            mediaId: String
+        ): ListenableFuture<LibraryResult<MediaItem>> {
+            val item = kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                buildMediaItem(mediaId)
+            }
+            return if (item != null) {
+                Futures.immediateFuture(LibraryResult.ofItem(item, null))
+            } else {
+                Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE))
+            }
+        }
+    }
+
+    /**
+     * Builds the children for a given browsable node in the media tree.
+     */
+    private suspend fun buildChildren(parentId: String): List<MediaItem> {
+        return when (parentId) {
+            MEDIA_ROOT_ID -> listOf(
+                buildBrowsableItem(MEDIA_SUBSCRIPTIONS_ID, "Subscriptions"),
+                buildBrowsableItem(MEDIA_RECENT_ID, "Recent Episodes"),
+                buildBrowsableItem(MEDIA_QUEUE_ID, "Queue"),
+                buildBrowsableItem(MEDIA_DOWNLOADS_ID, "Downloads")
+            )
+            MEDIA_SUBSCRIPTIONS_ID -> {
+                val podcasts = podcastDao.getSubscribedPodcasts().first()
+                podcasts.map { podcast ->
+                    MediaItem.Builder()
+                        .setMediaId("$MEDIA_PODCAST_PREFIX${podcast.id}")
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(podcast.title)
+                                .setArtist(podcast.author)
+                                .setArtworkUri(podcast.imageUrl?.let { android.net.Uri.parse(it) })
+                                .setIsBrowsable(true)
+                                .setIsPlayable(false)
+                                .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST)
+                                .build()
+                        )
+                        .build()
+                }
+            }
+            MEDIA_RECENT_ID -> {
+                val episodes = episodeDao.getRecentEpisodesFromSubscriptions(20).first()
+                episodes.map { it.toAutoMediaItem() }
+            }
+            MEDIA_QUEUE_ID -> {
+                _queue.value.map { it.toAutoMediaItem() }
+            }
+            MEDIA_DOWNLOADS_ID -> {
+                val downloads = downloadDao.getAllCompletedDownloads()
+                val episodeIds = downloads.map { it.episodeId }
+                episodeIds.mapNotNull { id ->
+                    episodeDao.getEpisodeById(id)?.toAutoMediaItem()
+                }
+            }
+            else -> {
+                // Podcast children (episodes)
+                if (parentId.startsWith(MEDIA_PODCAST_PREFIX)) {
+                    val podcastId = parentId.removePrefix(MEDIA_PODCAST_PREFIX).toLongOrNull() ?: return emptyList()
+                    val episodes = episodeDao.getEpisodesByPodcastOnce(podcastId)
+                    episodes.map { it.toAutoMediaItem() }
+                } else {
+                    emptyList()
+                }
+            }
+        }
+    }
+
+    private fun buildBrowsableItem(mediaId: String, title: String): MediaItem {
+        return MediaItem.Builder()
+            .setMediaId(mediaId)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(title)
+                    .setIsBrowsable(true)
+                    .setIsPlayable(false)
+                    .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
+                    .build()
+            )
+            .build()
+    }
+
+    private suspend fun buildMediaItem(mediaId: String): MediaItem? {
+        if (mediaId.startsWith(MEDIA_EPISODE_PREFIX)) {
+            val episodeId = mediaId.removePrefix(MEDIA_EPISODE_PREFIX).toLongOrNull() ?: return null
+            return episodeDao.getEpisodeById(episodeId)?.toAutoMediaItem()
+        }
+        return null
+    }
+
+    private fun Episode.toAutoMediaItem(): MediaItem {
+        return MediaItem.Builder()
+            .setMediaId("$MEDIA_EPISODE_PREFIX$id")
+            .setUri(audioUrl)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(title)
+                    .setArtworkUri(imageUrl?.let { android.net.Uri.parse(it) })
+                    .setIsBrowsable(false)
+                    .setIsPlayable(true)
+                    .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE)
+                    .build()
+            )
+            .build()
+    }
+
+
+    /**
+     * Returns the MediaLibrarySession for this service.
+     * Called by the system when a controller (including Android Auto) wants to connect.
+     */
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? {
         return mediaSession
     }
 

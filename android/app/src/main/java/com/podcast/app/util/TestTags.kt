@@ -186,6 +186,12 @@ object TestTags {
     const val AI_EPISODE_DOWNLOAD_COMPLETE = "ai_episode_download_complete"
     const val AI_EPISODE_DOWNLOADING = "ai_episode_downloading"
 
+    // GH#46: Streaming/downloaded indicator
+    const val PLAYBACK_SOURCE_INDICATOR = "playback_source_indicator"
+
+    // GH#47: Lock screen / notification media controls
+    const val MEDIA_NOTIFICATION = "media_notification"
+
     // MCP Widget Screen (Beads: podcast-test-mcp-widget)
     const val MCP_WIDGET_SCREEN = "mcp_widget_screen"
     const val MCP_WIDGET_WEBVIEW = "mcp_widget_webview"

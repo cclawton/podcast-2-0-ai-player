@@ -4,13 +4,12 @@ import android.app.Notification
 import android.content.Context
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.drawable.IconCompat
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
 import com.podcast.app.R
 import com.podcast.app.util.DiagnosticLogger
 
@@ -88,27 +87,34 @@ class ThrottledMediaNotificationProvider(
         }
 
         // Build and cache the new notification
-        val notification = buildNotification(mediaSession)
+        val notification = buildNotification(mediaSession, actionFactory)
         cachedNotification = notification
         return MediaNotification(NOTIFICATION_ID, notification)
     }
 
-    private fun buildNotification(mediaSession: MediaSession): Notification {
+    /**
+     * GH#47: Build notification with explicit media action buttons for lock screen
+     * and notification shade. MediaStyle + VISIBILITY_PUBLIC ensures controls
+     * appear on the lock screen. Uses Media3's actionFactory to create properly
+     * routed action intents that the MediaSession handles automatically.
+     */
+    private fun buildNotification(
+        mediaSession: MediaSession,
+        actionFactory: MediaNotification.ActionFactory
+    ): Notification {
         val player = mediaSession.player
         val metadata = player.mediaMetadata
 
-        // Get content title from metadata or use app name as fallback
         val contentTitle = metadata.title?.toString()
             ?: metadata.displayTitle?.toString()
             ?: context.getString(R.string.app_name)
 
-        // Get content text from metadata
         val contentText = metadata.artist?.toString()
             ?: metadata.albumArtist?.toString()
             ?: if (player.isPlaying) context.getString(R.string.notification_playing)
             else context.getString(R.string.notification_paused)
 
-        return NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_play)
             .setContentTitle(contentTitle)
             .setContentText(contentText)
@@ -116,12 +122,61 @@ class ThrottledMediaNotificationProvider(
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setStyle(
-                MediaStyleNotificationHelper.MediaStyle(mediaSession)
-                    .setShowActionsInCompactView(0, 1, 2)
-            )
             .setContentIntent(mediaSession.sessionActivity)
-            .build()
+
+        // GH#47: Add explicit media action buttons for lock screen + notification shade
+        // Action 0: Skip backward (rewind)
+        builder.addAction(
+            actionFactory.createCustomAction(
+                mediaSession,
+                IconCompat.createWithResource(context, R.drawable.ic_notification_rewind),
+                context.getString(R.string.skip_backward),
+                Player.COMMAND_SEEK_BACK.toString(),
+                Bundle.EMPTY
+            )
+        )
+
+        // Action 1: Play/Pause toggle
+        if (player.isPlaying) {
+            builder.addAction(
+                actionFactory.createCustomAction(
+                    mediaSession,
+                    IconCompat.createWithResource(context, R.drawable.ic_notification_pause),
+                    context.getString(R.string.pause),
+                    Player.COMMAND_PLAY_PAUSE.toString(),
+                    Bundle.EMPTY
+                )
+            )
+        } else {
+            builder.addAction(
+                actionFactory.createCustomAction(
+                    mediaSession,
+                    IconCompat.createWithResource(context, R.drawable.ic_notification_play),
+                    context.getString(R.string.play),
+                    Player.COMMAND_PLAY_PAUSE.toString(),
+                    Bundle.EMPTY
+                )
+            )
+        }
+
+        // Action 2: Skip forward
+        builder.addAction(
+            actionFactory.createCustomAction(
+                mediaSession,
+                IconCompat.createWithResource(context, R.drawable.ic_notification_forward),
+                context.getString(R.string.skip_forward),
+                Player.COMMAND_SEEK_FORWARD.toString(),
+                Bundle.EMPTY
+            )
+        )
+
+        // MediaStyle shows actions 0,1,2 in compact view (lock screen + collapsed notification)
+        builder.setStyle(
+            MediaStyleNotificationHelper.MediaStyle(mediaSession)
+                .setShowActionsInCompactView(0, 1, 2)
+        )
+
+        return builder.build()
     }
 
     override fun handleCustomCommand(
